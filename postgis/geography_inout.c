@@ -464,7 +464,7 @@ Datum geography_as_geojson(PG_FUNCTION_ARGS)
 {
 	LWGEOM *lwgeom = NULL;
 	GSERIALIZED *g = NULL;
-	char *geojson;
+	json_object *geojson;
 	text *result;
 	int version;
 	int option = 0;

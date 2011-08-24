@@ -3396,6 +3396,14 @@ CREATE OR REPLACE FUNCTION ST_GeomFromKML(text)
 	LANGUAGE 'C' IMMUTABLE STRICT;
 
 -----------------------------------------------------------------------
+-- GEOJSON INPUT
+-----------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION ST_GeomFromGeoJson(text)
+	RETURNS geometry
+	AS '$libdir/postgis-2.0','geom_from_geojson'
+	LANGUAGE 'C' IMMUTABLE STRICT;
+
+-----------------------------------------------------------------------
 -- SVG OUTPUT
 -----------------------------------------------------------------------
 -- Availability: 1.2.2

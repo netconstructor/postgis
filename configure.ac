@@ -575,7 +575,7 @@ AC_ARG_WITH([projdir],
 if test ! "x$PROJDIR" = "x"; then
 	dnl Make sure that the directory exists 
 	if test "x$PROJDIR" = "xyes"; then
-		AC_MSG_ERROR([you must specifiy a parameter to --with-projdir, e.g. --with-projdir=/path/to])
+		AC_MSG_ERROR([you must specify a parameter to --with-projdir, e.g. --with-projdir=/path/to])
 	else
 		if test -d "$PROJDIR"; then
 			AC_MSG_RESULT([Using user-specified proj directory: $PROJDIR])
@@ -615,6 +615,51 @@ LIBS="$PROJ_LDFLAGS"
 AC_CHECK_LIB([proj], [pj_get_release],
 	[],
 	[AC_MSG_ERROR([could not find libproj - you may need to specify the directory of a PROJ.4 installation using --with-projdir])],
+	[])
+LIBS="$LIBS_SAVE"
+
+dnl ===========================================================================
+dnl Detect the version of json-c installed
+dnl ===========================================================================
+
+AC_ARG_WITH([jsondir],
+	[AS_HELP_STRING([--with-jsondir=PATH], [specify the json-c installation directory])],
+	[JSONDIR="$withval"], [JSONDIR=""])
+
+if test ! "x$JSONDIR" = "x"; then
+	dnl Make sure that the directory exists
+	if test "x$JSONDIR" = "xyes"; then
+		AC_MSG_ERROR([you must specify a parameter to --with-jsondir, e.g. --with-jsondir=/path/to])
+	else
+		if test -d "$JSONDIR"; then
+			AC_MSG_RESULT([Using user-specified json-c directory: $JSONDIR])
+
+			dnl Add the include directory to JSON_CPPFLAGS
+			JSON_CPPFLAGS="-I$JSONDIR/include"
+			JSON_LDFLAGS="-L$JSONDIR/lib"
+		else
+			AC_MSG_ERROR([the --with-jsondir directory "$JSONDIR" cannot be found])
+		fi
+	fi
+fi
+
+
+dnl Check that we can find the json/json.h header file
+CPPFLAGS_SAVE="$CPPFLAGS"
+CPPFLAGS="$JSON_CPPFLAGS"
+AC_CHECK_HEADER([json/json.h], [], [AC_MSG_ERROR([could not find json/json.h - you may need to specify the directory of a json-c installation using --with-jsondir])])	
+
+CPPFLAGS="$CPPFLAGS_SAVE"
+
+AC_SUBST([JSON_CPPFLAGS])
+AC_SUBST([JSON_LDFLAGS])
+
+dnl Ensure we can link against libjson
+LIBS_SAVE="$LIBS"
+LIBS="$JSON_LDFLAGS"
+AC_CHECK_LIB([json], [json_object_get],
+	[],
+	[AC_MSG_ERROR([could not find libjson - you may need to specify the directory of a json-c installation using --with-jsondir])],
 	[])
 LIBS="$LIBS_SAVE"
 
@@ -709,10 +754,10 @@ dnl Always enable use of ANALYZE statistics by default
 AC_DEFINE_UNQUOTED([POSTGIS_USE_STATS], [1], [Enable use of ANALYZE statistics])
 
 
-CPPFLAGS="$PGSQL_CPPFLAGS $GEOS_CPPFLAGS $PROJ_CPPFLAGS $XML2_CPPFLAGS"
+CPPFLAGS="$PGSQL_CPPFLAGS $GEOS_CPPFLAGS $PROJ_CPPFLAGS $JSON_CPPFLAGS $XML2_CPPFLAGS"
 dnl AC_MSG_RESULT([CPPFLAGS: $CPPFLAGS])
 
-SHLIB_LINK="$PGSQL_LDFLAGS $GEOS_LDFLAGS $PROJ_LDFLAGS -lgeos_c -lproj $XML2_LDFLAGS"
+SHLIB_LINK="$PGSQL_LDFLAGS $GEOS_LDFLAGS $PROJ_LDFLAGS -lgeos_c -lproj $JSON_LDFLAGS -ljson $XML2_LDFLAGS"
 AC_SUBST([SHLIB_LINK])
 dnl AC_MSG_RESULT([SHLIB_LINK: $SHLIB_LINK])
 
