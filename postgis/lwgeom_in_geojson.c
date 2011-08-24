@@ -171,6 +171,36 @@ static LWGEOM* parse_geojson_point(json_object *geojson, bool *hasz,  int *root_
     return geom;
 }
 
+static LWGEOM* parse_geojson_linestring(json_object *geojson, bool *hasz,  int *root_srid)
+{
+    POSTGIS_DEBUG(2, "parse_geojson_linestring called.");
+
+    LWGEOM *geom;
+    POINTARRAY *pa;
+    json_object* points = NULL;
+    int i = 0;
+    
+    points = findMemberByName( geojson, "coordinates" );
+    
+    pa = ptarray_construct_empty(1, 0, 1);
+    
+    if( json_type_array == json_object_get_type( points ) )
+    {
+        const int nPoints = json_object_array_length( points );
+        for(i = 0; i < nPoints; ++i)
+        {
+            json_object* coords = NULL;
+            coords = json_object_array_get_idx( points, i );
+            ptarray_append_point(pa, parse_geojson_coord(coords, hasz), LW_FALSE);
+        }
+    }
+    
+    geom = (LWGEOM *) lwline_construct(*root_srid, NULL, pa);
+    
+    POSTGIS_DEBUG(2, "parse_geojson_linestring finished.");
+    return geom;
+}
+
 static LWGEOM* parse_geojson(json_object *geojson, bool *hasz,  int *root_srid)
 {
     json_object* type = NULL;
@@ -186,6 +216,9 @@ static LWGEOM* parse_geojson(json_object *geojson, bool *hasz,  int *root_srid)
 
     if( strcasecmp( name, "Point" )==0 )
         return parse_geojson_point(geojson, hasz, root_srid);
+
+    if( strcasecmp( name, "LineString" )==0 )
+        return parse_geojson_linestring(geojson, hasz, root_srid);
 
     lwerror("invalid GeoJson representation");
 	return NULL; /* Never reach */
