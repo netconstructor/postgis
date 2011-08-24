@@ -201,6 +201,50 @@ static LWGEOM* parse_geojson_linestring(json_object *geojson, bool *hasz,  int *
     return geom;
 }
 
+static LWGEOM* parse_geojson_polygon(json_object *geojson, bool *hasz,  int *root_srid)
+{
+    LWGEOM *geom;
+    POINTARRAY **ppa;
+    json_object* rings = NULL;
+    int i = 1, j = 0;
+    int ring;
+    
+    rings = findMemberByName( geojson, "coordinates" );
+    
+    ppa = (POINTARRAY**) lwalloc(sizeof(POINTARRAY*));
+    
+    if( json_type_array == json_object_get_type( rings ) )
+    {
+        ppa[0] = ptarray_construct_empty(1, 0, 1);
+        ring = json_object_array_length( rings );
+        json_object* points = NULL;
+        points = json_object_array_get_idx( rings, 0 );
+        const int nPoints = json_object_array_length( points );
+        
+        for (j=0; j < nPoints; j++ ) {
+            json_object* coords = NULL;
+            coords = json_object_array_get_idx( points, j );
+            ptarray_append_point(ppa[0], parse_geojson_coord(coords, hasz), LW_FALSE);
+        }
+        
+        for(i = 1; i < ring; ++i)
+        {
+            ppa = (POINTARRAY**) lwrealloc((POINTARRAY *) ppa, sizeof(POINTARRAY*) * (i + 1));
+            ppa[i] = ptarray_construct_empty(1, 0, 1);
+            points = json_object_array_get_idx( rings, i );
+            const int nPoints = json_object_array_length( points );
+            for (j=0; j < nPoints; j++ ) {
+                json_object* coords = NULL;
+                coords = json_object_array_get_idx( points, j );
+                ptarray_append_point( ppa[i], parse_geojson_coord(coords, hasz), LW_FALSE);
+            }
+        }
+    }
+    
+    geom = (LWGEOM *) lwpoly_construct(*root_srid, NULL, ring, ppa);
+    return geom;
+}
+
 static LWGEOM* parse_geojson(json_object *geojson, bool *hasz,  int *root_srid)
 {
     json_object* type = NULL;
@@ -219,6 +263,9 @@ static LWGEOM* parse_geojson(json_object *geojson, bool *hasz,  int *root_srid)
 
     if( strcasecmp( name, "LineString" )==0 )
         return parse_geojson_linestring(geojson, hasz, root_srid);
+
+    if( strcasecmp( name, "Polygon" )==0 )
+        return parse_geojson_polygon(geojson, hasz, root_srid);
 
     lwerror("invalid GeoJson representation");
 	return NULL; /* Never reach */
