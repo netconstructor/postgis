@@ -56,7 +56,7 @@ Datum geom_from_geojson(PG_FUNCTION_ARGS)
     bool hasz=true;
     json_tokener* jstok = NULL;
     json_object* poObj = NULL;
-    
+
     /* Get the geojson stream */
     if (PG_ARGISNULL(0)) PG_RETURN_NULL();
     geojson_input = PG_GETARG_TEXT_P(0);
@@ -85,12 +85,12 @@ Datum geom_from_geojson(PG_FUNCTION_ARGS)
             root_srid = getSRIDbySRS(pszName);
         }
     }
-    
+
     lwgeom = parse_geojson(poObj, &hasz, &root_srid);
 
     lwgeom_add_bbox(lwgeom);
     if (root_srid && lwgeom->srid == -1) lwgeom->srid = root_srid;
-    
+
     if (!hasz)
     {
         LWGEOM *tmp = lwgeom_force_2d(lwgeom);
@@ -99,10 +99,10 @@ Datum geom_from_geojson(PG_FUNCTION_ARGS)
         
         POSTGIS_DEBUG(2, "geom_from_geojson called.");
     }
-    
+
     geom = pglwgeom_serialize(lwgeom);
     lwgeom_free(lwgeom);
-    
+
     PG_RETURN_POINTER(geom);
 }
 
@@ -110,17 +110,17 @@ static POINT4D* parse_geojson_coord(json_object *poObj, bool *hasz)
 {
     POINT4D pt;
     int iType = 0;
-    
+
     POSTGIS_DEBUGF(3, "parse_geojson_coord called for object %s.", json_object_to_json_string( poObj ) );
-    
+
     if( json_type_array == json_object_get_type( poObj ) )
     {
 
         const int nSize = json_object_array_length( poObj );
         POSTGIS_DEBUGF(3, "parse_geojson_coord called for array size %d.", nSize );
-        
+
         json_object* poObjCoord = NULL;
-        
+
         // Read X coordinate
         poObjCoord = json_object_array_get_idx( poObj, 0 );
         iType = json_object_get_type(poObjCoord);
@@ -128,16 +128,16 @@ static POINT4D* parse_geojson_coord(json_object *poObj, bool *hasz)
             pt.x = json_object_get_double( poObjCoord );
         else
             pt.x = (double)json_object_get_int( poObjCoord );
-        
+
         // Read Y coordiante
         poObjCoord = json_object_array_get_idx( poObj, 1 );
         if (iType == json_type_double)
             pt.y = json_object_get_double( poObjCoord );
         else
             pt.y = (double)json_object_get_int( poObjCoord );
-        
+
         *hasz = false;
-        
+
         if( nSize == 3 )
         {
              poObjCoord = json_object_array_get_idx( poObj, 2 );
@@ -149,7 +149,7 @@ static POINT4D* parse_geojson_coord(json_object *poObj, bool *hasz)
              *hasz = true;
         }
     }
-    
+
     return &pt;
 }
 
@@ -179,11 +179,11 @@ static LWGEOM* parse_geojson_linestring(json_object *geojson, bool *hasz,  int *
     POINTARRAY *pa;
     json_object* points = NULL;
     int i = 0;
-    
+
     points = findMemberByName( geojson, "coordinates" );
-    
+
     pa = ptarray_construct_empty(1, 0, 1);
-    
+
     if( json_type_array == json_object_get_type( points ) )
     {
         const int nPoints = json_object_array_length( points );
@@ -194,7 +194,7 @@ static LWGEOM* parse_geojson_linestring(json_object *geojson, bool *hasz,  int *
             ptarray_append_point(pa, parse_geojson_coord(coords, hasz), LW_FALSE);
         }
     }
-    
+
     geom = (LWGEOM *) lwline_construct(*root_srid, NULL, pa);
     
     POSTGIS_DEBUG(2, "parse_geojson_linestring finished.");
@@ -208,11 +208,11 @@ static LWGEOM* parse_geojson_polygon(json_object *geojson, bool *hasz,  int *roo
     json_object* rings = NULL;
     int i = 1, j = 0;
     int ring;
-    
+
     rings = findMemberByName( geojson, "coordinates" );
-    
+
     ppa = (POINTARRAY**) lwalloc(sizeof(POINTARRAY*));
-    
+
     if( json_type_array == json_object_get_type( rings ) )
     {
         ppa[0] = ptarray_construct_empty(1, 0, 1);
@@ -220,13 +220,13 @@ static LWGEOM* parse_geojson_polygon(json_object *geojson, bool *hasz,  int *roo
         json_object* points = NULL;
         points = json_object_array_get_idx( rings, 0 );
         const int nPoints = json_object_array_length( points );
-        
+
         for (j=0; j < nPoints; j++ ) {
             json_object* coords = NULL;
             coords = json_object_array_get_idx( points, j );
             ptarray_append_point(ppa[0], parse_geojson_coord(coords, hasz), LW_FALSE);
         }
-        
+
         for(i = 1; i < ring; ++i)
         {
             ppa = (POINTARRAY**) lwrealloc((POINTARRAY *) ppa, sizeof(POINTARRAY*) * (i + 1));
@@ -240,7 +240,7 @@ static LWGEOM* parse_geojson_polygon(json_object *geojson, bool *hasz,  int *roo
             }
         }
     }
-    
+
     geom = (LWGEOM *) lwpoly_construct(*root_srid, NULL, ring, ppa);
     return geom;
 }
