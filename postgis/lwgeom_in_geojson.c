@@ -393,6 +393,38 @@ static LWGEOM* parse_geojson_multipolygon(json_object *geojson, bool *hasz,  int
     return geom;
 }
 
+static LWGEOM* parse_geojson_geometrycollection(json_object *geojson, bool *hasz,  int *root_srid)
+{
+    LWGEOM *geom = NULL;
+    int i;
+    
+    if (!*root_srid)
+	{
+		geom = (LWGEOM *)lwcollection_construct_empty(COLLECTIONTYPE, *root_srid, 1, 0);
+	}
+	else
+	{
+		geom = (LWGEOM *)lwcollection_construct_empty(COLLECTIONTYPE, -1, 1, 0);
+	}
+	
+	json_object* poObjGeoms = NULL;
+    poObjGeoms = findMemberByName( geojson, "geometries" );
+    
+    if( json_type_array == json_object_get_type( poObjGeoms ) )
+    {
+        const int nGeoms = json_object_array_length( poObjGeoms );
+        json_object* poObjGeom = NULL;
+        for(i = 0; i < nGeoms; ++i )
+        {
+            poObjGeom = json_object_array_get_idx( poObjGeoms, i );
+            geom = (LWGEOM*)lwcollection_add_lwgeom((LWCOLLECTION *)geom,
+                parse_geojson(poObjGeom, hasz, root_srid));
+        }
+    }
+    
+    return geom;
+}
+
 static LWGEOM* parse_geojson(json_object *geojson, bool *hasz,  int *root_srid)
 {
     json_object* type = NULL;
@@ -423,6 +455,9 @@ static LWGEOM* parse_geojson(json_object *geojson, bool *hasz,  int *root_srid)
 
     if( strcasecmp( name, "MultiPolygon" )==0 )
         return parse_geojson_multipolygon(geojson, hasz, root_srid);
+    
+    if( strcasecmp( name, "GeometryCollection" )==0 )
+        return parse_geojson_geometrycollection(geojson, hasz, root_srid);
         
     lwerror("invalid GeoJson representation");
 	return NULL; /* Never reach */
