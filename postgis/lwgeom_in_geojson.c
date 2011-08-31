@@ -83,6 +83,7 @@ Datum geom_from_geojson(PG_FUNCTION_ARGS)
             json_object* poNameURL = findMemberByName( poObjSrsProps, "name" );
             const char* pszName = json_object_get_string( poNameURL );
             root_srid = getSRIDbySRS(pszName);
+            POSTGIS_DEBUGF(3, "getSRIDbySRS returned root_srid = %d.", root_srid );
         }
     }
 
@@ -127,26 +128,27 @@ static POINT4D* parse_geojson_coord(json_object *poObj, bool *hasz)
         if (iType == json_type_double)
             pt.x = json_object_get_double( poObjCoord );
         else
-            pt.x = (double)json_object_get_int( poObjCoord );
+            pt.x = json_object_get_int( poObjCoord );
 
         // Read Y coordiante
         poObjCoord = json_object_array_get_idx( poObj, 1 );
         if (iType == json_type_double)
             pt.y = json_object_get_double( poObjCoord );
         else
-            pt.y = (double)json_object_get_int( poObjCoord );
+            pt.y = json_object_get_int( poObjCoord );
 
         *hasz = false;
 
         if( nSize == 3 )
         {
-             poObjCoord = json_object_array_get_idx( poObj, 2 );
-             if (iType == 3)
-                 pt.z = json_object_get_double( poObjCoord );
-             else
-                 pt.z = (double)json_object_get_int( poObjCoord );
+            // Read Z coordiante
+            poObjCoord = json_object_array_get_idx( poObj, 2 );
+            if (iType == 3)
+                pt.z = json_object_get_double( poObjCoord );
+            else
+                pt.z = json_object_get_int( poObjCoord );
 
-             *hasz = true;
+            *hasz = true;
         }
     }
 
@@ -155,7 +157,7 @@ static POINT4D* parse_geojson_coord(json_object *poObj, bool *hasz)
 
 static LWGEOM* parse_geojson_point(json_object *geojson, bool *hasz,  int *root_srid)
 {
-    POSTGIS_DEBUG(2, "parse_geojson_point called.");
+    POSTGIS_DEBUGF(3, "parse_geojson_point called with root_srid = %d.", *root_srid );
 
     LWGEOM *geom;
     POINTARRAY *pa;
@@ -267,16 +269,61 @@ static LWGEOM* parse_geojson_multipoint(json_object *geojson, bool *hasz,  int *
         {
             json_object* poObjCoords = NULL;
             poObjCoords = json_object_array_get_idx( poObjPoints, i );
-            
+
             POINTARRAY *pa;
             pa = ptarray_construct_empty(1, 0, 1);
             ptarray_append_point(pa, parse_geojson_coord(poObjCoords, hasz), LW_FALSE);
-            
+
             geom = (LWGEOM*)lwmpoint_add_lwpoint((LWMPOINT*)geom,
                  (LWPOINT*)lwpoint_construct(*root_srid, NULL, pa));
         }
     }
 
+    return geom;
+}
+
+static LWGEOM* parse_geojson_multilinestring(json_object *geojson, bool *hasz,  int *root_srid)
+{
+    LWGEOM *geom = NULL;
+    int i, j;
+
+    if (!*root_srid)
+    {
+        geom = (LWGEOM *)lwcollection_construct_empty(MULTILINETYPE, *root_srid, 1, 0);
+    }
+    else
+    {
+        geom = (LWGEOM *)lwcollection_construct_empty(MULTILINETYPE, -1, 1, 0);
+    }
+
+    json_object* poObjLines = NULL;
+    poObjLines = findMemberByName( geojson, "coordinates" );
+
+    if( json_type_array == json_object_get_type( poObjLines ) )
+    {
+        const int nLines = json_object_array_length( poObjLines );
+        for( i = 0; i < nLines; ++i) {
+            json_object* poObjLine = NULL;
+            poObjLine = json_object_array_get_idx( poObjLines, i );
+            POINTARRAY *pa = NULL;
+            pa = ptarray_construct_empty(1, 0, 1);
+
+            if( json_type_array == json_object_get_type( poObjLine ) )
+            {
+                const int nPoints = json_object_array_length( poObjLine );
+                for(j = 0; j < nPoints; ++j)
+                {
+                    json_object* coords = NULL;
+                    coords = json_object_array_get_idx( poObjLine, j );
+                    ptarray_append_point(pa, parse_geojson_coord(coords, hasz), LW_FALSE);
+                }
+
+                geom = (LWGEOM*)lwmline_add_lwline((LWMLINE*)geom, 
+                    (LWMLINE*)lwline_construct(*root_srid, NULL, pa));
+            }
+        }
+    }
+    
     return geom;
 }
 
@@ -304,6 +351,9 @@ static LWGEOM* parse_geojson(json_object *geojson, bool *hasz,  int *root_srid)
 
     if( strcasecmp( name, "MultiPoint" )==0 )
         return parse_geojson_multipoint(geojson, hasz, root_srid);
+
+    if( strcasecmp( name, "MultiLineString" )==0 )
+        return parse_geojson_multilinestring(geojson, hasz, root_srid);
 
     lwerror("invalid GeoJson representation");
 	return NULL; /* Never reach */
