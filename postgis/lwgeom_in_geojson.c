@@ -107,7 +107,7 @@ Datum geom_from_geojson(PG_FUNCTION_ARGS)
     PG_RETURN_POINTER(geom);
 }
 
-static POINT4D* parse_geojson_coord(json_object *poObj, bool *hasz)
+int parse_geojson_coord(json_object *poObj, bool *hasz, POINTARRAY *pa)
 {
     POINT4D pt;
     int iType = 0;
@@ -129,6 +129,7 @@ static POINT4D* parse_geojson_coord(json_object *poObj, bool *hasz)
             pt.x = json_object_get_double( poObjCoord );
         else
             pt.x = json_object_get_int( poObjCoord );
+        POSTGIS_DEBUGF(3, "parse_geojson_coord pt.x = %f.", pt.x );
 
         // Read Y coordiante
         poObjCoord = json_object_array_get_idx( poObj, 1 );
@@ -136,6 +137,7 @@ static POINT4D* parse_geojson_coord(json_object *poObj, bool *hasz)
             pt.y = json_object_get_double( poObjCoord );
         else
             pt.y = json_object_get_int( poObjCoord );
+        POSTGIS_DEBUGF(3, "parse_geojson_coord pt.y = %f.", pt.y );
 
         *hasz = false;
 
@@ -147,12 +149,12 @@ static POINT4D* parse_geojson_coord(json_object *poObj, bool *hasz)
                 pt.z = json_object_get_double( poObjCoord );
             else
                 pt.z = json_object_get_int( poObjCoord );
-
+            POSTGIS_DEBUGF(3, "parse_geojson_coord pt.z = %f.", pt.z );
             *hasz = true;
         }
     }
 
-    return &pt;
+    return ptarray_append_point(pa, &pt, LW_FALSE);
 }
 
 static LWGEOM* parse_geojson_point(json_object *geojson, bool *hasz,  int *root_srid)
@@ -166,7 +168,7 @@ static LWGEOM* parse_geojson_point(json_object *geojson, bool *hasz,  int *root_
     coords = findMemberByName( geojson, "coordinates" );
     
     pa = ptarray_construct_empty(1, 0, 1);
-    ptarray_append_point(pa, parse_geojson_coord(coords, hasz), LW_FALSE);
+    parse_geojson_coord(coords, hasz, pa);
 
     geom = (LWGEOM *) lwpoint_construct(*root_srid, NULL, pa);
     POSTGIS_DEBUG(2, "parse_geojson_point finished.");
@@ -193,7 +195,7 @@ static LWGEOM* parse_geojson_linestring(json_object *geojson, bool *hasz,  int *
         {
             json_object* coords = NULL;
             coords = json_object_array_get_idx( points, i );
-            ptarray_append_point(pa, parse_geojson_coord(coords, hasz), LW_FALSE);
+            parse_geojson_coord(coords, hasz, pa);
         }
     }
 
@@ -226,7 +228,7 @@ static LWGEOM* parse_geojson_polygon(json_object *geojson, bool *hasz,  int *roo
         for (i=0; i < nPoints; i++ ) {
             json_object* coords = NULL;
             coords = json_object_array_get_idx( points, i );
-            ptarray_append_point(ppa[0], parse_geojson_coord(coords, hasz), LW_FALSE);
+            parse_geojson_coord(coords, hasz, ppa[0]);
         }
 
         for(i = 1; i < ring; ++i)
@@ -238,7 +240,7 @@ static LWGEOM* parse_geojson_polygon(json_object *geojson, bool *hasz,  int *roo
             for (j=0; j < nPoints; j++ ) {
                 json_object* coords = NULL;
                 coords = json_object_array_get_idx( points, j );
-                ptarray_append_point( ppa[i], parse_geojson_coord(coords, hasz), LW_FALSE);
+                parse_geojson_coord(coords, hasz, ppa[i]);
             }
         }
     }
@@ -272,7 +274,7 @@ static LWGEOM* parse_geojson_multipoint(json_object *geojson, bool *hasz,  int *
 
             POINTARRAY *pa;
             pa = ptarray_construct_empty(1, 0, 1);
-            ptarray_append_point(pa, parse_geojson_coord(poObjCoords, hasz), LW_FALSE);
+            parse_geojson_coord(poObjCoords, hasz, pa);
 
             geom = (LWGEOM*)lwmpoint_add_lwpoint((LWMPOINT*)geom,
                  (LWPOINT*)lwpoint_construct(*root_srid, NULL, pa));
@@ -315,7 +317,7 @@ static LWGEOM* parse_geojson_multilinestring(json_object *geojson, bool *hasz,  
                 {
                     json_object* coords = NULL;
                     coords = json_object_array_get_idx( poObjLine, j );
-                    ptarray_append_point(pa, parse_geojson_coord(coords, hasz), LW_FALSE);
+                    parse_geojson_coord(coords, hasz, pa);
                 }
 
                 geom = (LWGEOM*)lwmline_add_lwline((LWMLINE*)geom, 
@@ -367,7 +369,7 @@ static LWGEOM* parse_geojson_multipolygon(json_object *geojson, bool *hasz,  int
                 for (j=0; j < nPoints; j++ ) {
                     json_object* coords = NULL;
                     coords = json_object_array_get_idx( points, j );
-                    ptarray_append_point(ppa[0], parse_geojson_coord(coords, hasz), LW_FALSE);
+                    parse_geojson_coord(coords, hasz, ppa[0]);
                 }
 
                 for(j = 1; j < ring; ++j)
@@ -380,7 +382,7 @@ static LWGEOM* parse_geojson_multipolygon(json_object *geojson, bool *hasz,  int
                     for (k=0; k < nPoints; k++ ) {
                         json_object* coords = NULL;
                         coords = json_object_array_get_idx( points, k );
-                        ptarray_append_point( ppa[i], parse_geojson_coord(coords, hasz), LW_FALSE);
+                        parse_geojson_coord(coords, hasz, ppa[i]);
                     }
                 }
 
