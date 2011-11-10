@@ -20,12 +20,14 @@ json_object* findMemberByName(json_object* poObj, const char* pszName )
     if( NULL == pszName || NULL == poObj)
         return NULL;
 
-    json_object* poTmp = poObj;
-
+    json_object* poTmp;
     json_object_iter it;
+
+    poTmp = poObj;
     it.key = NULL;
     it.val = NULL;
     it.entry = NULL;
+
     if( NULL != json_object_get_object(poTmp) )
     {
         assert( NULL != json_object_get_object(poTmp)->head );
@@ -47,7 +49,7 @@ json_object* findMemberByName(json_object* poObj, const char* pszName )
 PG_FUNCTION_INFO_V1(geom_from_geojson);
 Datum geom_from_geojson(PG_FUNCTION_ARGS)
 {
-    PG_LWGEOM *geom;
+    GSERIALIZED *geom;
     LWGEOM *lwgeom;
     text *geojson_input;
     int geojson_size;
@@ -101,7 +103,7 @@ Datum geom_from_geojson(PG_FUNCTION_ARGS)
         POSTGIS_DEBUG(2, "geom_from_geojson called.");
     }
 
-    geom = pglwgeom_serialize(lwgeom);
+    geom = geometry_serialize(lwgeom);
     lwgeom_free(lwgeom);
 
     PG_RETURN_POINTER(geom);
