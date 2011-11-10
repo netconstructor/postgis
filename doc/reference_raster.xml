@@ -456,7 +456,7 @@ VALUES (1,
 		</refentry>
   </sect1>
   <sect1 id="Raster_Management_Functions">
-  	<title>Raster Management Functions</title>
+  	<title>Raster Management</title>
   	<refentry id="RT_AddRasterColumn">
 	  <refnamediv>
 		<refname>AddRasterColumn</refname>
@@ -1057,6 +1057,128 @@ WHERE short_name = 'GTiff') As g;
   
   <sect1 id="Raster_Constructors">
   		<title>Raster Constructors</title>
+  		<refentry id="RT_ST_AddBand">
+			<refnamediv>
+				<refname>ST_AddBand</refname>
+				<refpurpose>Returns a raster with the new band of given type added with given initial value in the given index location.  If no index is specified, the band is added to the end.</refpurpose>
+			</refnamediv>
+		
+			<refsynopsisdiv>
+				<funcsynopsis>
+				   <funcprototype>
+					<funcdef>raster <function>ST_AddBand</function></funcdef>
+					<paramdef><type>raster </type> <parameter>rast</parameter></paramdef>
+					<paramdef><type>text </type> <parameter>pixeltype</parameter></paramdef>
+				  </funcprototype>
+				  <funcprototype>
+					<funcdef>raster <function>ST_AddBand</function></funcdef>
+					<paramdef><type>raster </type> <parameter>rast</parameter></paramdef>
+					<paramdef><type>text </type> <parameter>pixeltype</parameter></paramdef>
+					<paramdef><type>double precision </type> <parameter>initialvalue</parameter></paramdef>
+				  </funcprototype>
+				  <funcprototype>
+					<funcdef>raster <function>ST_AddBand</function></funcdef>
+					<paramdef><type>raster </type> <parameter>rast</parameter></paramdef>
+					<paramdef><type>text </type> <parameter>pixeltype</parameter></paramdef>
+					<paramdef><type>double precision </type> <parameter>initialvalue</parameter></paramdef>
+					<paramdef><type>double precision </type> <parameter>nodataval</parameter></paramdef>
+				  </funcprototype>
+				  <funcprototype>
+					<funcdef>raster <function>ST_AddBand</function></funcdef>
+					<paramdef><type>raster </type> <parameter>rast</parameter></paramdef>
+					<paramdef><type>integer </type> <parameter>index</parameter></paramdef>
+					<paramdef><type>text </type> <parameter>pixeltype</parameter></paramdef>
+				  </funcprototype>
+				  <funcprototype>
+					<funcdef>raster <function>ST_AddBand</function></funcdef>
+					<paramdef><type>raster </type> <parameter>rast</parameter></paramdef>
+					<paramdef><type>integer </type> <parameter>index</parameter></paramdef>
+					<paramdef><type>text </type> <parameter>pixeltype</parameter></paramdef>
+					<paramdef><type>double precision </type> <parameter>initialvalue</parameter></paramdef>
+				  </funcprototype>
+				  <funcprototype>
+					<funcdef>raster <function>ST_AddBand</function></funcdef>
+					<paramdef><type>raster </type> <parameter>rast</parameter></paramdef>
+					<paramdef><type>integer </type> <parameter>index</parameter></paramdef>
+					<paramdef><type>text </type> <parameter>pixeltype</parameter></paramdef>
+					<paramdef><type>double precision </type> <parameter>initialvalue</parameter></paramdef>
+					<paramdef><type>double precision </type> <parameter>nodataval</parameter></paramdef>
+				  </funcprototype>
+				  <funcprototype>
+					<funcdef>raster <function>ST_AddBand</function></funcdef>
+					<paramdef><type>raster </type> <parameter>torast</parameter></paramdef>
+					<paramdef><type>raster </type> <parameter>fromrast</parameter></paramdef>
+				  </funcprototype>
+				  <funcprototype>
+					<funcdef>raster <function>ST_AddBand</function></funcdef>
+					<paramdef><type>raster </type> <parameter>torast</parameter></paramdef>
+					<paramdef><type>raster </type> <parameter>fromrast</parameter></paramdef>
+					<paramdef><type>integer </type> <parameter>fromband</parameter></paramdef>
+				  </funcprototype>
+                  <funcprototype>
+					<funcdef>raster <function>ST_AddBand</function></funcdef>
+					<paramdef><type>raster </type> <parameter>torast</parameter></paramdef>
+					<paramdef><type>raster </type> <parameter>fromrast</parameter></paramdef>
+					<paramdef><type>integer </type> <parameter>fromband</parameter></paramdef>
+					<paramdef><type>integer </type> <parameter>torastindex</parameter></paramdef>
+				  </funcprototype>
+
+				</funcsynopsis>
+			</refsynopsisdiv>
+		
+			<refsection>
+				<title>Description</title>
+				
+				<para>Returns a raster with a new band added in given position (index), of given type, of given initial value, and of given nodata value.  If no index is specified, the band is added to the end. 
+				If no <varname>fromband</varname> is specified, band 1 is assumed. Pixel type is a string representation
+				    of one of the pixel types specified in <xref linkend="RT_ST_BandPixelType" />.  If an existing index is specified all subsequent bands >= that index are incremented by 1.
+				    If an initial value greater than the max of the pixel type
+                    is specified, then the initial value is set to the highest
+                    value allowed by the pixel type. The last version add the
+                    <varname>fromband</varname> from <varname>fromrast</varname> raster to <varname>torast</varname> in position <varname>torastindex</varname>.</para>
+				</refsection>
+				
+				<refsection>
+					<title>Examples</title>
+				
+					<programlisting>-- Add another band of type 8 bit unsigned integer with pixels initialized to 200
+UPDATE dummy_rast
+    SET rast = ST_AddBand(rast,'8BUI',200)  
+WHERE rid = 1;
+					</programlisting>
+					
+					<programlisting>-- Create an empty raster 100x100 units, with upper left  right at 0, add 2 bands (band 1 is 0/1 boolean bit switch, band2 allows values 0-15)
+INSERT INTO dummy_rast(rid,rast)
+    VALUES(10, ST_AddBand(ST_AddBand(ST_MakeEmptyRaster(100,100,0,0,1,-1,0,0, -1), '1BB'), '4BUI') );
+    
+-- output meta data of raster bands to verify all is right --
+SELECT  (bmd).*
+FROM (SELECT ST_BandMetaData(rast,generate_series(1,2)) As bmd 
+    FROM dummy_rast WHERE rid = 10) AS foo;
+ --result --   
+ pixeltype | hasnodata      | nodatavalue | isoutdb | path
+-----------+----------------+-------------+---------+------
+ 1BB       | f              |           0 | f       |
+ 4BUI      | f              |           0 | f       |
+ 
+ 
+-- output meta data of raster -
+SELECT  (rmd).width, (rmd).height, (rmd).numbands
+FROM (SELECT ST_MetaData(rast) As rmd 
+    FROM dummy_rast WHERE rid = 10) AS foo;
+-- result --
+ upperleftx | upperlefty | width | height | scalex | scaley | skewx | skewy | srid | numbands
+------------+------------+-------+--------+------------+------------+-------+-------+------+----------
+          0 |          0 |   100 |    100 |          1 |         -1 |     0 |  0 |   -1 |        2
+					</programlisting>
+			
+			</refsection>
+
+			<refsection>
+				<title>See Also</title>
+				<para><xref linkend="RT_ST_BandMetaData" />, <xref linkend="RT_ST_BandPixelType" />, <xref linkend="RT_ST_MakeEmptyRaster" />, <xref linkend="RT_ST_MetaData" />, <xref linkend="RT_ST_NumBands" /></para>
+			</refsection>
+		</refentry>
   			<refentry id="RT_ST_AsRaster">
 			<refnamediv>
 				<refname>ST_AsRaster</refname>
@@ -2322,130 +2444,7 @@ t          |
 	</sect1>
 	
 	<sect1 id="RasterBand_Accessors">
-		<title>Raster Band Accessors and Constructors</title>
-		<refentry id="RT_ST_AddBand">
-			<refnamediv>
-				<refname>ST_AddBand</refname>
-				<refpurpose>Returns a raster with the new band of given type added with given initial value in the given index location.  If no index is specified, the band is added to the end.</refpurpose>
-			</refnamediv>
-		
-			<refsynopsisdiv>
-				<funcsynopsis>
-				   <funcprototype>
-					<funcdef>raster <function>ST_AddBand</function></funcdef>
-					<paramdef><type>raster </type> <parameter>rast</parameter></paramdef>
-					<paramdef><type>text </type> <parameter>pixeltype</parameter></paramdef>
-				  </funcprototype>
-				  <funcprototype>
-					<funcdef>raster <function>ST_AddBand</function></funcdef>
-					<paramdef><type>raster </type> <parameter>rast</parameter></paramdef>
-					<paramdef><type>text </type> <parameter>pixeltype</parameter></paramdef>
-					<paramdef><type>double precision </type> <parameter>initialvalue</parameter></paramdef>
-				  </funcprototype>
-				  <funcprototype>
-					<funcdef>raster <function>ST_AddBand</function></funcdef>
-					<paramdef><type>raster </type> <parameter>rast</parameter></paramdef>
-					<paramdef><type>text </type> <parameter>pixeltype</parameter></paramdef>
-					<paramdef><type>double precision </type> <parameter>initialvalue</parameter></paramdef>
-					<paramdef><type>double precision </type> <parameter>nodataval</parameter></paramdef>
-				  </funcprototype>
-				  <funcprototype>
-					<funcdef>raster <function>ST_AddBand</function></funcdef>
-					<paramdef><type>raster </type> <parameter>rast</parameter></paramdef>
-					<paramdef><type>integer </type> <parameter>index</parameter></paramdef>
-					<paramdef><type>text </type> <parameter>pixeltype</parameter></paramdef>
-				  </funcprototype>
-				  <funcprototype>
-					<funcdef>raster <function>ST_AddBand</function></funcdef>
-					<paramdef><type>raster </type> <parameter>rast</parameter></paramdef>
-					<paramdef><type>integer </type> <parameter>index</parameter></paramdef>
-					<paramdef><type>text </type> <parameter>pixeltype</parameter></paramdef>
-					<paramdef><type>double precision </type> <parameter>initialvalue</parameter></paramdef>
-				  </funcprototype>
-				  <funcprototype>
-					<funcdef>raster <function>ST_AddBand</function></funcdef>
-					<paramdef><type>raster </type> <parameter>rast</parameter></paramdef>
-					<paramdef><type>integer </type> <parameter>index</parameter></paramdef>
-					<paramdef><type>text </type> <parameter>pixeltype</parameter></paramdef>
-					<paramdef><type>double precision </type> <parameter>initialvalue</parameter></paramdef>
-					<paramdef><type>double precision </type> <parameter>nodataval</parameter></paramdef>
-				  </funcprototype>
-				  <funcprototype>
-					<funcdef>raster <function>ST_AddBand</function></funcdef>
-					<paramdef><type>raster </type> <parameter>torast</parameter></paramdef>
-					<paramdef><type>raster </type> <parameter>fromrast</parameter></paramdef>
-				  </funcprototype>
-				  <funcprototype>
-					<funcdef>raster <function>ST_AddBand</function></funcdef>
-					<paramdef><type>raster </type> <parameter>torast</parameter></paramdef>
-					<paramdef><type>raster </type> <parameter>fromrast</parameter></paramdef>
-					<paramdef><type>integer </type> <parameter>fromband</parameter></paramdef>
-				  </funcprototype>
-                  <funcprototype>
-					<funcdef>raster <function>ST_AddBand</function></funcdef>
-					<paramdef><type>raster </type> <parameter>torast</parameter></paramdef>
-					<paramdef><type>raster </type> <parameter>fromrast</parameter></paramdef>
-					<paramdef><type>integer </type> <parameter>fromband</parameter></paramdef>
-					<paramdef><type>integer </type> <parameter>torastindex</parameter></paramdef>
-				  </funcprototype>
-
-				</funcsynopsis>
-			</refsynopsisdiv>
-		
-			<refsection>
-				<title>Description</title>
-				
-				<para>Returns a raster with a new band added in given position (index), of given type, of given initial value, and of given nodata value.  If no index is specified, the band is added to the end. 
-				If no <varname>fromband</varname> is specified, band 1 is assumed. Pixel type is a string representation
-				    of one of the pixel types specified in <xref linkend="RT_ST_BandPixelType" />.  If an existing index is specified all subsequent bands >= that index are incremented by 1.
-				    If an initial value greater than the max of the pixel type
-                    is specified, then the initial value is set to the highest
-                    value allowed by the pixel type. The last version add the
-                    <varname>fromband</varname> from <varname>fromrast</varname> raster to <varname>torast</varname> in position <varname>torastindex</varname>.</para>
-				</refsection>
-				
-				<refsection>
-					<title>Examples</title>
-				
-					<programlisting>-- Add another band of type 8 bit unsigned integer with pixels initialized to 200
-UPDATE dummy_rast
-    SET rast = ST_AddBand(rast,'8BUI',200)  
-WHERE rid = 1;
-					</programlisting>
-					
-					<programlisting>-- Create an empty raster 100x100 units, with upper left  right at 0, add 2 bands (band 1 is 0/1 boolean bit switch, band2 allows values 0-15)
-INSERT INTO dummy_rast(rid,rast)
-    VALUES(10, ST_AddBand(ST_AddBand(ST_MakeEmptyRaster(100,100,0,0,1,-1,0,0, -1), '1BB'), '4BUI') );
-    
--- output meta data of raster bands to verify all is right --
-SELECT  (bmd).*
-FROM (SELECT ST_BandMetaData(rast,generate_series(1,2)) As bmd 
-    FROM dummy_rast WHERE rid = 10) AS foo;
- --result --   
- pixeltype | hasnodata      | nodatavalue | isoutdb | path
------------+----------------+-------------+---------+------
- 1BB       | f              |           0 | f       |
- 4BUI      | f              |           0 | f       |
- 
- 
--- output meta data of raster -
-SELECT  (rmd).width, (rmd).height, (rmd).numbands
-FROM (SELECT ST_MetaData(rast) As rmd 
-    FROM dummy_rast WHERE rid = 10) AS foo;
--- result --
- upperleftx | upperlefty | width | height | scalex | scaley | skewx | skewy | srid | numbands
-------------+------------+-------+--------+------------+------------+-------+-------+------+----------
-          0 |          0 |   100 |    100 |          1 |         -1 |     0 |  0 |   -1 |        2
-					</programlisting>
-			
-			</refsection>
-
-			<refsection>
-				<title>See Also</title>
-				<para><xref linkend="RT_ST_BandMetaData" />, <xref linkend="RT_ST_BandPixelType" />, <xref linkend="RT_ST_MakeEmptyRaster" />, <xref linkend="RT_ST_MetaData" />, <xref linkend="RT_ST_NumBands" /></para>
-			</refsection>
-		</refentry>
-		
+		<title>Raster Band Accessors</title>
 		<refentry id="RT_ST_BandMetaData">
 			<refnamediv>
 				<refname>ST_BandMetaData</refname>
@@ -2799,14 +2798,10 @@ WHERE rid = 2;
 		
 			<refsynopsisdiv>
 				<funcsynopsis>
-				<funcprototype>
-					<funcdef>boolean <function>ST_HasNoBand</function></funcdef>
-					<paramdef><type>raster </type> <parameter>rast</parameter></paramdef>
-				  </funcprototype>
 				  <funcprototype>
-					<funcdef>boolean <function>ST_HasNoBand</function></funcdef>
-					<paramdef><type>raster </type> <parameter>rast</parameter></paramdef>
-					<paramdef><type>integer </type> <parameter>bandnum</parameter></paramdef>
+						<funcdef>boolean <function>ST_HasNoBand</function></funcdef>
+						<paramdef><type>raster </type> <parameter>rast</parameter></paramdef>
+						<paramdef><type>integer </type> <parameter>bandnum=1</parameter></paramdef>
 				  </funcprototype>
 				</funcsynopsis>
 			</refsynopsisdiv>
@@ -3488,7 +3483,7 @@ WHERE rid = 2;
 		<refentry id="RT_ST_Resample">
 			<refnamediv>
 				<refname>ST_Resample</refname>
-				<refpurpose>Warps a raster in a known spatial reference system using a specified resampling algorithm and reference raster.  The new raster will have the same srid, skew and dimensions as the reference.
+				<refpurpose>Warps a raster in a known spatial reference system using a specified resampling algorithm and set of raster attributes or reference raster.  If using a reference raster, the new raster will have the same srid, skew, scale and alignment.
 				    Uses NearestNeighbor if no algorithm is specified Options: NearestNeighbor (english or american spelling), Bilinear, Cubic, CubicSpline, Lanczos.</refpurpose>
 			</refnamediv>
 		
@@ -4821,7 +4816,7 @@ FROM dummy_rast WHERE rid=2;
 	</sect1>
 	
 	<sect1 id="Raster_Processing">
-		<title>Raster Processing Functions</title>
+		<title>Raster Processing</title>
 		<refentry id="RT_Box2D">
 			<refnamediv>
 				<refname>Box2D</refname>
@@ -5140,7 +5135,7 @@ WHERE A.rid =2 ) As foo;
 		<refentry id="RT_ST_MapAlgebraExpr">
 			<refnamediv>
 				<refname>ST_MapAlgebraExpr</refname>
-				<refpurpose>Creates a new one band raster formed by applying a valid PostgreSQL algebraic operation on the input raster band and of pixeltype provided.  band 1 is assumed if no band is specified.</refpurpose>
+				<refpurpose>1 raster band version: Creates a new one band raster formed by applying a valid PostgreSQL algebraic operation on the input raster band and of pixeltype provided.  band 1 is assumed if no band is specified.</refpurpose>
 			</refnamediv>
 		
 			<refsynopsisdiv>
@@ -5268,7 +5263,468 @@ WHERE rid=167;
 
 			<refsection>
 				<title>See Also</title>
-				<para><xref linkend="RT_ST_BandPixelType" />, <xref linkend="RT_ST_GeoReference" />,  <xref linkend="RT_ST_Value" /></para>
+				<para><xref linkend="RT_ST_MapAlgebraExpr2" />, <xref linkend="RT_ST_MapAlgebraFct" />, <xref linkend="RT_ST_BandPixelType" />, <xref linkend="RT_ST_GeoReference" />,  <xref linkend="RT_ST_Value" /></para>
+			</refsection>
+		</refentry>
+		
+		<refentry id="RT_ST_MapAlgebraExpr2">
+			<refnamediv>
+				<refname>ST_MapAlgebraExpr</refname>
+				<refpurpose>2 raster band version: Creates a new one band raster formed by applying a valid PostgreSQL algebraic operation on the 2 input raster bands and of pixeltype provided.  band 1 of each raster is assumed if no band numbers are specified. The resulting raster will be aligned (scale, skew and pixel corners) on the grid defined by the first raster. The resulting raster will have the extent defined by the "extenttype" parameter. Values for "extenttype" can be: INTERSECTION, UNION, FIRST, SECOND</refpurpose>
+			</refnamediv>
+		
+			<refsynopsisdiv>
+				<funcsynopsis>
+					<funcprototype>
+					<funcdef>raster <function>ST_MapAlgebraExpr</function></funcdef>
+					<paramdef><type>raster </type> <parameter>rast1</parameter></paramdef>
+					<paramdef><type>raster </type> <parameter>rast2</parameter></paramdef>
+					<paramdef><type>text </type> <parameter>expression</parameter></paramdef>
+					<paramdef  choice='opt'><type>text </type> <parameter>pixeltype=sames_as_rast1_band</parameter></paramdef>
+					<paramdef choice='opt'><type>text </type> <parameter>extenttype=INTERSECTION</parameter></paramdef>
+					<paramdef choice='opt'><type>text </type> <parameter>nodata1expr=NULL</parameter></paramdef>
+					<paramdef choice='opt'><type>text </type> <parameter>nodata2expr=NULL</parameter></paramdef>
+					<paramdef choice='opt'><type>double precision </type> <parameter>nodatanodataval=NULL</parameter></paramdef>
+				  </funcprototype>
+				  
+				  <funcprototype>
+					<funcdef>raster <function>ST_MapAlgebraExpr</function></funcdef>
+					<paramdef><type>raster </type> <parameter>rast1</parameter></paramdef>
+					<paramdef><type>integer </type> <parameter>band1</parameter></paramdef>
+					<paramdef><type>raster </type> <parameter>rast2</parameter></paramdef>
+					<paramdef><type>integer </type> <parameter>band2</parameter></paramdef>
+					<paramdef><type>text </type> <parameter>expression</parameter></paramdef>
+					<paramdef choice='opt'><type>text </type> <parameter>pixeltype=sames_as_rast1_band</parameter></paramdef>
+					<paramdef choice='opt'><type>text </type> <parameter>extenttype=INTERSECTION</parameter></paramdef>
+					<paramdef choice='opt'><type>text </type> <parameter>nodata1expr=NULL</parameter></paramdef>
+					<paramdef choice='opt'><type>text </type> <parameter>nodata2expr=NULL</parameter></paramdef>
+					<paramdef choice='opt'><type>double precision </type> <parameter>nodatanodataval=NULL</parameter></paramdef>
+				  </funcprototype>
+				</funcsynopsis>
+			</refsynopsisdiv>
+		
+			<refsection>
+				<title>Description</title>
+				
+				<para>Creates a new one band raster formed by applying a valid PostgreSQL algebraic operation to the 2 bands defined by the <varname>expression</varname> on the 2 input raster bands <varname>rast1</varname>, (<varname>rast2</varname>). If no <varname>band1</varname>,  <varname>band2</varname> is specified band 1 is assumed. 
+				The resulting raster will be aligned (scale, skew and pixel corners) on the grid defined by the first raster. The resulting raster will have the extent defined by the <varname>extenttype</varname> parameter. Values for <varname>extenttype</varname>:</para>
+				
+				<variablelist>
+					<varlistentry>
+						<term>expression</term>
+						<listitem><para>The algebraic expression involving the 2 rasters that will define the pixel value when pixels intersect</para></listitem>
+					</varlistentry>
+					<varlistentry>
+						<term>pixeltype</term>
+						<listitem><para>The resulting pixel type of the output raster.  Must be one listed in <xref linkend='RT_ST_BandPixelType' /> or left out or set to NULL.  If not passed in or set to NULL, will default to the pixeltype of the first raster.</para></listitem>
+					</varlistentry>
+					<varlistentry>
+						<term>extenttype</term>
+						<listitem><para>Controls the extent of resulting raster</para>
+						 <orderedlist>
+							<listitem>
+								<para><varname>INTERSECTION</varname> The extent of the new raster is the intersection of the two rasters. This is the default.</para>
+							</listitem>
+							<listitem>
+								<para><varname>UNION</varname> The extent of the new raster is the union of the two rasters.</para>
+							</listitem>
+							<listitem>
+								<para><varname>FIRST</varname> The extent of the new raster is the  same as the one of the first raster.</para>
+							</listitem>
+							<listitem>
+								<para><varname>SECOND</varname> The extent of the new raster is the  same as the one of the second raster.</para>
+							</listitem>
+						 </orderedlist>
+						</listitem>
+					</varlistentry>
+					<varlistentry>
+						<term>nodata1expr</term>
+						<listitem><para>An algebraic expression involving <varname>rast2</varname> or a constant that defines what to return if pixel of <varname>rast1</varname> is missing pixel value but rast2 has pixel value. </para></listitem>
+					</varlistentry>
+					<varlistentry>
+						<term>nodata2expr</term>
+						<listitem><para>An algebraic expression involving <varname>rast1</varname> or a constant that defines what to return if pixel of <varname>rast2</varname> is missing pixel value but rast1 has pixel value.</para></listitem>
+					</varlistentry>
+					<varlistentry>
+						<term>nodatanodataval</term>
+						<listitem><para>A numeric constant to return for pixel value when both rast1 and rast2 are missing a pixel value (have no data for that pixel)</para></listitem>
+					</varlistentry>
+			
+				</variablelist>
+        
+                 <para>If <varname>pixeltype</varname> is passed in, then the new raster will have a band of that pixeltype.  If pixeltype is passed NULL or no pixel type specified, then the new raster band will have the same pixeltype as the input <varname>rast1</varname> band.</para>
+                 <para>Use the term <varname>rast1</varname>  <varname>rast2</varname> to refer to the pixel value of the original raster bands.</para>
+              
+			
+                 <para>Availability: 2.0.0 </para>
+             </refsection>
+				
+             <refsection>
+				<title>Example: 2 Band Intersection and Union</title>
+				
+				<para>Create a new 1 band raster from our original that is  a function of modulo 2 of the original raster band.</para>
+				<programlisting>
+--Create a cool set of rasters --
+DROP TABLE IF EXISTS fun_shapes; 
+CREATE TABLE fun_shapes(rid serial PRIMARY KEY, fun_name text, rast raster);
+
+-- Insert some cool shapes around Boston in Massachusetts state plane meters --
+INSERT INTO fun_shapes(fun_name, rast)
+VALUES ('ref', ST_AsRaster(ST_MakeEnvelope(235229, 899970, 237229, 901930,26986),200,200,'8BUI',0,0));
+
+INSERT INTO fun_shapes(fun_name,rast)
+WITH ref(rast) AS (SELECT rast FROM fun_shapes WHERE fun_name = 'ref' ) 
+SELECT 'area' AS fun_name, ST_AsRaster(ST_Buffer(ST_SetSRID(ST_Point(236229, 900930),26986), 1000), 
+			ref.rast,'8BUI', 10, 0) As rast
+FROM ref
+UNION ALL
+SELECT 'rand bubbles', 
+		 	ST_AsRaster( 
+		 	(SELECT ST_Collect(geom)
+	FROM (SELECT ST_Buffer(ST_SetSRID(ST_Point(236229 + i*random()*100, 900930 + j*random()*100),26986), random()*20) As geom
+			FROM generate_series(1,10) As i, generate_series(1,10) As j
+			) As foo ), ref.rast,'8BUI', 200, 0) 
+FROM ref;
+
+--map them -
+SELECT  ST_MapAlgebraExpr(
+		area.rast, bub.rast, 'rast2', '8BUI', 'INTERSECTION', 'rast2', 'rast1') As interrast,
+		ST_MapAlgebraExpr(
+			area.rast, bub.rast, 'rast2', '8BUI', 'UNION', 'rast2', 'rast1') As unionrast
+FROM 
+  (SELECT rast FROM fun_shapes WHERE
+ fun_name = 'area') As area
+CROSS JOIN  (SELECT rast 
+FROM fun_shapes WHERE
+ fun_name = 'rand bubbles') As bub
+				</programlisting>
+				<informaltable>
+  <tgroup cols="2">
+	<tbody>
+	  <row>
+		<entry><informalfigure>
+			<mediaobject>
+			  <imageobject>
+				<imagedata fileref="images/st_mapalgebraexpr2_01.png" />
+			  </imageobject>
+			  <caption><para>mapalgebra intersection</para></caption>
+			</mediaobject>
+		  </informalfigure>
+		 </entry>
+		<entry><informalfigure>
+			<mediaobject>
+			  <imageobject>
+				<imagedata fileref="images/st_mapalgebraexpr2_02.png" />
+			  </imageobject>
+			  <caption><para>map algebra union</para></caption>
+			</mediaobject>
+		  </informalfigure>
+		 </entry>
+		</row>
+	</tbody>
+</tgroup>
+</informaltable>
+			</refsection>
+			<refsection>
+				<title>Example: Overlaying rasters on a canvas as separate bands</title>
+				<programlisting>
+-- we use ST_AsPNG to render the image so all single band ones look grey --
+WITH mygeoms 
+    AS ( SELECT 2 As bnum, ST_Buffer(ST_Point(1,5),10) As geom
+            UNION ALL
+            SELECT 3 AS bnum, 
+                ST_Buffer(ST_GeomFromText('LINESTRING(50 50,150 150,150 50)'), 10,'join=bevel') As geom
+            UNION ALL
+            SELECT 1 As bnum, 
+                ST_Buffer(ST_GeomFromText('LINESTRING(60 50,150 150,150 50)'), 5,'join=bevel') As geom
+            ),
+   -- define our canvas to be 1 to 1 pixel to geometry
+   canvas
+    AS ( SELECT ST_AddBand(ST_MakeEmptyRaster(200, 
+        200, 
+        ST_XMin(e)::integer, ST_YMax(e)::integer, 1,-1, 0, 0 ) , '8BUI'::text,0) As rast
+        FROM (SELECT ST_Extent(geom) As e,
+                    Max(ST_SRID(geom)) As srid 
+                    from mygeoms 
+                    ) As foo
+            ),
+   rbands AS (SELECT ARRAY(SELECT ST_MapAlgebraExpr(canvas.rast, ST_AsRaster(m.geom, canvas.rast, '8BUI', 100),
+                 'rast2', '8BUI', 'FIRST', 'rast2', 'rast1') As rast
+                FROM mygeoms AS m CROSS JOIN canvas
+                ORDER BY m.bnum) As rasts
+                )
+          SELECT rasts[1] As rast1 , rasts[2] As rast2, rasts[3] As rast3, ST_AddBand(
+                    ST_AddBand(rasts[1],rasts[2]), rasts[3]) As final_rast
+            FROM rbands;</programlisting>
+            
+<informaltable>
+  <tgroup cols="2">
+	<tbody>
+	  <row>
+		<entry><informalfigure>
+			<mediaobject>
+			  <imageobject>
+				<imagedata fileref="images/st_mapalgebraexpr2_04.png" />
+			  </imageobject>
+			  <caption><para>rast1</para></caption>
+			</mediaobject>
+		  </informalfigure>
+		 </entry>
+		<entry><informalfigure>
+			<mediaobject>
+			  <imageobject>
+				<imagedata fileref="images/st_mapalgebraexpr2_05.png" />
+			  </imageobject>
+			  <caption><para>rast2</para></caption>
+			</mediaobject>
+		  </informalfigure>
+		 </entry>
+	</row>
+	<row>
+		<entry><informalfigure>
+			<mediaobject>
+			  <imageobject>
+				<imagedata fileref="images/st_mapalgebraexpr2_06.png" />
+			  </imageobject>
+			  <caption><para>rast3</para></caption>
+			</mediaobject>
+		  </informalfigure>
+		 </entry>
+		 
+		 <entry><informalfigure>
+			<mediaobject>
+			  <imageobject>
+				<imagedata fileref="images/st_mapalgebraexpr2_07.png" />
+			  </imageobject>
+			  <caption><para>final_rast</para></caption>
+			</mediaobject>
+		  </informalfigure>
+		 </entry>
+	</row>
+	</tbody>
+</tgroup>
+</informaltable>
+			</refsection>
+
+			<refsection>
+				<title>See Also</title>
+				<para><xref linkend="RT_ST_MapAlgebraExpr" />,<xref linkend="RT_ST_AddBand" />, <xref linkend="RT_ST_AsPNG" />, <xref linkend="RT_ST_AsRaster" />, <xref linkend="RT_ST_MapAlgebraFct" />, <xref linkend="RT_ST_BandPixelType" />, <xref linkend="RT_ST_GeoReference" />,  <xref linkend="RT_ST_Value" /></para>
+			</refsection>
+		</refentry>
+
+		<refentry id="RT_ST_MapAlgebraFct">
+			<refnamediv>
+				<refname>ST_MapAlgebraFct</refname>
+				<refpurpose>Creates a new one band raster formed by applying a valid PostgreSQL function on the input raster band and of pixeltype prodived. Band 1 is assumed if no band is specified.</refpurpose>
+			</refnamediv>
+
+			<refsynopsisdiv>
+				<funcsynopsis>	
+					<funcprototype>
+						<funcdef>raster <function>ST_MapAlgebraFct</function></funcdef>
+						<paramdef><type>raster</type> <parameter>rast</parameter></paramdef>
+						<paramdef><type>regprocedure</type> <parameter>userfunction</parameter></paramdef>
+					</funcprototype>				
+					<funcprototype>
+						<funcdef>raster <function>ST_MapAlgebraFct</function></funcdef>
+						<paramdef><type>raster</type> <parameter>rast</parameter></paramdef>
+						<paramdef><type>integer</type> <parameter>band</parameter></paramdef>
+						<paramdef><type>text</type> <parameter>pixeltype</parameter></paramdef>
+						<paramdef><type>regprocedure</type> <parameter>userfunction</parameter></paramdef>
+						<paramdef><type>text[]</type> <parameter>VARIADIC args</parameter></paramdef>
+					</funcprototype>
+					
+					<funcprototype>
+						<funcdef>raster <function>ST_MapAlgebraFct</function></funcdef>
+						<paramdef><type>raster</type> <parameter>rast</parameter></paramdef>
+						<paramdef><type>integer</type> <parameter>band</parameter></paramdef>
+						<paramdef><type>regprocedure</type> <parameter>userfunction</parameter></paramdef>
+						<paramdef><type>text[]</type> <parameter>VARIADIC args</parameter></paramdef>
+					</funcprototype>
+
+					<funcprototype>
+						<funcdef>raster <function>ST_MapAlgebraFct</function></funcdef>
+						<paramdef><type>raster</type> <parameter>rast</parameter></paramdef>
+						<paramdef><type>integer</type> <parameter>band</parameter></paramdef>
+						<paramdef><type>regprocedure</type> <parameter>userfunction</parameter></paramdef>
+					</funcprototype>
+					
+					<funcprototype>
+						<funcdef>raster <function>ST_MapAlgebraFct</function></funcdef>
+						<paramdef><type>raster</type> <parameter>rast</parameter></paramdef>
+						<paramdef><type>integer</type> <parameter>band</parameter></paramdef>
+						<paramdef><type>text</type> <parameter>pixeltype</parameter></paramdef>
+						<paramdef><type>regprocedure</type> <parameter>userfunction</parameter></paramdef>
+					</funcprototype>
+
+					<funcprototype>
+						<funcdef>raster <function>ST_MapAlgebraFct</function></funcdef>
+						<paramdef><type>raster</type> <parameter>rast</parameter></paramdef>
+						<paramdef><type>text</type> <parameter>pixeltype</parameter></paramdef>
+						<paramdef><type>regprocedure</type> <parameter>userfunction</parameter></paramdef>
+					</funcprototype>
+
+				</funcsynopsis>
+			</refsynopsisdiv>
+
+			<refsection>
+				<title>Description</title>
+				
+				<para>Creates a new one band raster formed by applying a valid PostgreSQL function specified by the <varname>userfunction</varname> on the input raster (<varname>rast</varname>). If no <varname>band</varname> is specified, band 1 is assumed. The new raster will have the same georeference, width, and height as the original raster but will only have one band.</para>
+
+				<para>If <varname>pixeltype</varname> is passed in, then the new raster will have a band of that pixeltype. If pixeltype is passed NULL, then the new raster band will have the same pixeltype as the input <varname>rast</varname> band.</para>
+
+                <para>The <varname>userfunction</varname> parameter must be the name and signature of a SQL or PL/pgSQL function, cast to a regprocedure. A very simple and quite useless PL/pgSQL function example is:
+                <programlisting>CREATE OR REPLACE FUNCTION simple_function(pixel FLOAT, VARIADIC args TEXT[])
+    RETURNS FLOAT
+    AS $$ BEGIN
+        RETURN 0.0;
+    END; $$
+    LANGUAGE 'plpgsql';</programlisting>
+                The <varname>userfunction</varname> is required to accept two arguments: a float value, and a variadic text array. The first argument is the value of an individual raster cell (regardless of the raster datatype), and the second argument indicates that all remaining parameters to <xref linkend="RT_ST_MapAlgebraFct" /> shall be passed through to the <varname>userfunction</varname>.</para>
+
+                <para>Passing a <type>regprodedure</type> argument to a SQL function requires the full function signature to be passed, then cast to a <type>regprocedure</type> type. To pass the above example PL/pgSQL function as an argument, the SQL for the argument is:<programlisting>'simple_function(float,text[])'::regprocedure</programlisting>Note that the argument contains the name of the function, the types of the function arguments, quotes around the name and argument types, and a cast to a <type>regprocedure</type>.</para>
+
+                <para>The second argument to the <varname>userfunction</varname> is a <type>variadic text</type> array. All trailing text arguments to any <xref linkend="RT_ST_MapAlgebraFct" /> call are passed through to the specified <varname>userfunction</varname>, and are contained in the <varname>args</varname> argument.</para>
+
+                <note><para>For more information about the VARIADIC keyword, please refer to the PostgreSQL documentation and the "SQL Functions with Variable Numbers of Arguments" section of <ulink url="http://www.postgresql.org/docs/current/interactive/xfunc-sql.html">Query Language (SQL) Functions</ulink>.</para></note>
+
+                <note><para>The <type>text[]</type> argument to the <varname>userfunction</varname> is required, regardless of whether you choose to pass any arguments to your user function for processing or not.</para></note>
+
+				<para>Availability: 2.0.0</para>
+			</refsection>
+
+			<refsection>
+				<title>Examples</title>
+
+				<para>Create a new 1 band raster from our original that is a function of modulo 2 of the original raster band.</para>
+				<programlisting>ALTER TABLE dummy_rast ADD COLUMN map_rast raster;
+CREATE FUNCTION mod_fct(pixel float, variadic args text[])
+RETURNS float
+AS $$
+BEGIN
+    RETURN pixel::integer % 2;
+END;
+$$
+LANGUAGE 'plpgsql';
+
+UPDATE dummy_rast SET map_rast = ST_MapAlgebraFct(rast,NULL,'mod_fct(float,text[])'::regprocedure) WHERE rid = 2;
+
+SELECT ST_Value(rast,1,i,j) As origval, ST_Value(map_rast, 1, i, j) As mapval
+FROM dummy_rast CROSS JOIN generate_series(1, 3) AS i CROSS JOIN generate_series(1,3) AS j
+WHERE rid = 2;
+
+ origval | mapval
+---------+--------
+     253 |      1
+     254 |      0
+     253 |      1
+     253 |      1
+     254 |      0
+     254 |      0
+     250 |      0
+     254 |      0
+     254 |      0
+ 				</programlisting>
+				<para>Create a new 1 band raster of pixel-type 2BUI from our original that is reclassified and set the nodata value to a passed parameter to the user function (0).</para>
+				<programlisting>ALTER TABLE dummy_rast ADD COLUMN map_rast2 raster;
+CREATE FUNCTION classify_fct(pixel float, variadic args text[])
+RETURNS float
+AS
+$$
+DECLARE
+    nodata float := 0;
+BEGIN
+    IF NOT args[1] IS NULL THEN
+        nodata := args[1];
+    END IF;
+    IF pixel &lt; 251 THEN
+        RETURN 1;
+    ELSIF pixel = 252 THEN
+        RETURN 2;
+    ELSIF pixel &gt; 252 THEN
+        RETURN 3;
+    ELSE
+        RETURN nodata;
+    END IF;
+END;
+$$
+LANGUAGE 'plpgsql';
+UPDATE dummy_rast SET map_rast2 = ST_MapAlgebraFct(rast,'2BUI','classify_fct(float,text[])'::regprocedure, '0') WHERE rid = 2;
+
+SELECT DISTINCT ST_Value(rast,1,i,j) As origval, ST_Value(map_rast2, 1, i, j) As mapval
+FROM dummy_rast CROSS JOIN generate_series(1, 5) AS i CROSS JOIN generate_series(1,5) AS j
+WHERE rid = 2;
+
+ origval | mapval
+---------+--------
+     249 |      1
+     250 |      1
+     251 |
+     252 |      2
+     253 |      3
+     254 |      3
+     
+SELECT ST_BandPixelType(map_rast2) As b1pixtyp
+FROM dummy_rast WHERE rid = 2;
+
+ b1pixtyp
+----------
+ 2BUI</programlisting>
+ 				<informaltable>
+					<tgroup cols="2">
+						<tbody>
+							<row>
+								<entry><informalfigure>
+									<mediaobject>
+										<imageobject>
+											<imagedata fileref="images/st_mapalgebraexpr01.png" />
+										</imageobject>
+										<caption><para>original (column rast-view)</para></caption>
+									</mediaobject>
+								</informalfigure></entry>
+								<entry><informalfigure>
+									<mediaobject>
+										<imageobject>
+											<imagedata fileref="images/st_mapalgebraexpr02.png" />
+										</imageobject>
+										<caption><para>rast_view_ma</para></caption>
+									</mediaobject>
+								</informalfigure></entry>
+							</row>
+						</tbody>
+					</tgroup>
+				</informaltable>
+
+				<para>Create a new 3 band raster same pixel type from our original 3 band raster with first band altered by map algebra and remaining 2 bands unaltered.</para>
+				<programlisting>CREATE FUNCTION rast_plus_tan(pixel float, variadic args text[])
+RETURNS float
+AS
+$$
+BEGIN
+	RETURN tan(pixel) * pixel;
+END;
+$$
+LANGUAGE 'plpgsql';
+
+SELECT ST_AddBand(
+	ST_AddBand(
+		ST_AddBand(
+			ST_MakeEmptyRaster(rast_view),
+			ST_MapAlgebraFct(rast_view,1,NULL,'rast_plus_tan(float,text[])'::regprocedure)
+		), 
+		ST_Band(rast_view,2)
+	),
+	ST_Band(rast_view, 3) As rast_view_ma
+)
+FROM wind
+WHERE rid=167;		
+				</programlisting>
+			</refsection>
+
+			<refsection>
+				<title>See Also</title>
+				<para><xref linkend="RT_ST_MapAlgebraExpr" />, <xref linkend="RT_ST_BandPixelType" />, <xref linkend="RT_ST_GeoReference" />, <xref linkend="RT_ST_SetValue" /></para>
 			</refsection>
 		</refentry>
 		
@@ -5764,6 +6220,121 @@ WHERE A.rid =2 ;
 			<refsection>
 				<title>See Also</title>
 				<para><xref linkend="RT_ST_Intersection" /></para>
+			</refsection>
+		</refentry>
+		
+	<refentry id="RT_ST_SameAlignment">
+		<refnamediv>
+			<refname>ST_SameAlignment</refname>
+
+			<refpurpose>Returns true if rasters have same skew,scale, spatial ref and false if they don't with notice detailing issue. </refpurpose>
+		  </refnamediv>
+
+		  <refsynopsisdiv>
+			<funcsynopsis>			  
+			  <funcprototype>
+				<funcdef>boolean <function>ST_SameAlignment</function></funcdef>
+				<paramdef>
+				  <type>raster </type>
+				  <parameter>rastA</parameter>
+				</paramdef>
+				<paramdef>
+				  <type>raster </type>
+				  <parameter>rastB</parameter>
+				</paramdef>
+			  </funcprototype>
+		
+			  <funcprototype>
+				<funcdef>boolean <function>ST_SameAlignment</function></funcdef>
+				<paramdef>
+				  <type>double precision </type>
+				  <parameter>ulx1</parameter>
+				</paramdef>
+				<paramdef>
+				  <type>double precision </type>
+				  <parameter>uly1</parameter>
+				</paramdef>
+				<paramdef>
+				  <type>double precision </type>
+				  <parameter>scalex1</parameter>
+				</paramdef>
+				<paramdef>
+				  <type>double precision </type>
+				  <parameter>scaley1</parameter>
+				</paramdef>
+				<paramdef>
+				  <type>double precision </type>
+				  <parameter>skewx1</parameter>
+				</paramdef>
+				<paramdef>
+				  <type>double precision </type>
+				  <parameter>skewy1</parameter>
+				</paramdef>
+				<paramdef>
+				  <type>double precision </type>
+				  <parameter>ulx2</parameter>
+				</paramdef>
+				<paramdef>
+				  <type>double precision </type>
+				  <parameter>uly2</parameter>
+				</paramdef>
+				<paramdef>
+				  <type>double precision </type>
+				  <parameter>scalex2</parameter>
+				</paramdef>
+				<paramdef>
+				  <type>double precision </type>
+				  <parameter>scaley2</parameter>
+				</paramdef>
+				<paramdef>
+				  <type>double precision </type>
+				  <parameter>skewx2</parameter>
+				</paramdef>
+				<paramdef>
+				  <type>double precision </type>
+				  <parameter>skewy2</parameter>
+				</paramdef>
+			  </funcprototype>
+			</funcsynopsis>
+		  </refsynopsisdiv>
+
+		  <refsection>
+			<title>Description</title>
+
+			<para>Returns true if the raster have same skew scale etc.  Returns false if they don't and a NOTICE detailing the alignment issue.</para>
+		
+			<para>Availability: 2.0.0</para>
+		  </refsection>
+
+		  <refsection>
+			<title>Examples: Rasters</title>
+
+			<programlisting>SELECT ST_SameAlignment(
+	ST_MakeEmptyRaster(1, 1, 0, 0, 1, 1, 0, 0),
+	ST_MakeEmptyRaster(1, 1, 0, 0, 1, 1, 0, 0)
+) as sm;
+
+sm
+----
+t
+</programlisting>
+<programlisting>
+SELECT ST_SameAlignment(A.rast,b.rast)
+ FROM dummy_rast AS A CROSS JOIN dummy_rast AS B;
+
+ NOTICE:  The two rasters provided have different SRIDs
+NOTICE:  The two rasters provided have different SRIDs
+ st_samealignment
+------------------
+ t
+ f
+ f
+ f
+</programlisting>
+		  </refsection>	
+			<refsection>
+				<title>See Also</title>
+				<para><xref linkend="RT_Loading_Rasters" />,<xref linkend="RT_ST_MakeEmptyRaster" /></para>
 			</refsection>
 		</refentry>
 	</sect1>

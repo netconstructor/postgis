@@ -139,6 +139,32 @@ typedef struct rt_gdaldriver_t* rt_gdaldriver;
 typedef struct rt_reclassexpr_t* rt_reclassexpr;
 
 /**
+ * Enum definitions
+ */
+/* Pixel types */
+typedef enum {
+    PT_1BB=0,     /* 1-bit boolean            */
+    PT_2BUI=1,    /* 2-bit unsigned integer   */
+    PT_4BUI=2,    /* 4-bit unsigned integer   */
+    PT_8BSI=3,    /* 8-bit signed integer     */
+    PT_8BUI=4,    /* 8-bit unsigned integer   */
+    PT_16BSI=5,   /* 16-bit signed integer    */
+    PT_16BUI=6,   /* 16-bit unsigned integer  */
+    PT_32BSI=7,   /* 32-bit signed integer    */
+    PT_32BUI=8,   /* 32-bit unsigned integer  */
+    PT_32BF=10,   /* 32-bit float             */
+    PT_64BF=11,   /* 64-bit float             */
+    PT_END=13
+} rt_pixtype;
+
+typedef enum {
+	ET_INTERSECTION = 0,
+	ET_UNION,
+	ET_FIRST,
+	ET_SECOND
+} rt_extenttype;
+
+/**
 * Global functions for memory/logging handlers.
 */
 typedef void* (*rt_allocator)(size_t size);
@@ -240,22 +266,6 @@ void rt_set_handlers(rt_allocator allocator, rt_reallocator reallocator,
 
 /*- rt_pixtype --------------------------------------------------------*/
 
-/* Pixel types */
-typedef enum {
-    PT_1BB=0,     /* 1-bit boolean            */
-    PT_2BUI=1,    /* 2-bit unsigned integer   */
-    PT_4BUI=2,    /* 4-bit unsigned integer   */
-    PT_8BSI=3,    /* 8-bit signed integer     */
-    PT_8BUI=4,    /* 8-bit unsigned integer   */
-    PT_16BSI=5,   /* 16-bit signed integer    */
-    PT_16BUI=6,   /* 16-bit unsigned integer  */
-    PT_32BSI=7,   /* 32-bit signed integer    */
-    PT_32BUI=8,   /* 32-bit unsigned integer  */
-    PT_32BF=10,   /* 32-bit float             */
-    PT_64BF=11,   /* 64-bit float             */
-    PT_END=13
-} rt_pixtype;
-
 /**
  * Return size in bytes of a value in the given pixtype
  */
@@ -273,6 +283,15 @@ const char* rt_pixtype_name(rt_pixtype pixtype);
 
 /* Return pixel type index from human-readable name */
 rt_pixtype rt_pixtype_index_from_name(const char* pixname);
+
+/**
+ * Return minimum value possible for pixel type
+ *
+ * @param pixtype: the pixel type to get minimum possible value for
+ *
+ * @return the minimum possible value for the pixel type.
+ */
+double rt_pixtype_get_min_value(rt_pixtype pixtype);
 
 /*- rt_band ----------------------------------------------------------*/
 
@@ -413,9 +432,10 @@ double rt_band_get_nodata(rt_band band);
 
 /**
  * Set pixel value
+ *
  * @param band : the band to set nodata value to
- * @param x : x ordinate
- * @param y : x ordinate
+ * @param x : x ordinate (0-based)
+ * @param y : x ordinate (0-based)
  * @param val : the pixel value, must be in the range
  *              of values supported by this band's pixeltype
  *              or a warning will be printed and non-zero
@@ -430,10 +450,11 @@ int rt_band_set_pixel(rt_band band,
  * Get pixel value
  *
  * @param band : the band to set nodata value to
- * @param x : x ordinate
- * @param y : x ordinate
+ * @param x : x ordinate (0-based)
+ * @param y : x ordinate (0-based)
  * @param *result: result if there is a value
- * @return the pixel value, as a double.
+ *
+ * @return 0 on success, -1 on error (value out of valid range).
  */
 int rt_band_get_pixel(rt_band band,
                          uint16_t x, uint16_t y, double *result );
@@ -682,8 +703,6 @@ uint16_t rt_raster_get_height(rt_raster raster);
  */
 int32_t rt_raster_add_band(rt_raster raster, rt_band band, int index);
 
-
-
 /**
  * Generate a new band data and add it to a raster.
  *
@@ -814,6 +833,16 @@ void rt_raster_get_geotransform_matrix(rt_raster raster,
 	double *gt);
 
 /**
+ * Set raster's geotransform using 6-element array
+ *
+ * @param raster : the raster to set matrix of
+ * @param gt : intput parameter, 6-element geotransform matrix
+ *
+ */
+void rt_raster_set_geotransform_matrix(rt_raster raster,
+	double *gt);
+
+/**
  * Convert an xr, yr raster point to an xw, yw point on map
  *
  * @param raster : the raster to get info from
@@ -871,7 +900,7 @@ LWPOLY* rt_raster_get_convex_hull(rt_raster raster);
  * the same value) and the value associated with this geometry.
  *
  * @param raster: the raster to get info from.
- * @param nband: the band to polygonize. From 1 to rt_raster_get_num_bands
+ * @param nband: the band to polygonize. 0-based
  *
  * @return A set of "geomval" values, one for each group of pixels
  * sharing the same value for the provided band. The returned values are
@@ -904,26 +933,29 @@ rt_raster rt_raster_deserialize(void* serialized, int header_only);
 
 /**
  * Return TRUE if the raster is empty. i.e. is NULL, width = 0 or height = 0
+ *
  * @param raster: the raster to get info from
+ *
  * @return TRUE if the raster is empty, FALSE otherwise
  */
 int rt_raster_is_empty(rt_raster raster);
 
 /**
  * Return TRUE if the raster do not have a band of this number.
+ *
  * @param raster: the raster to get info from
- * @param nband: the band number.
+ * @param nband: the band number. 0-based
+ *
  * @return TRUE if the raster do not have a band of this number, FALSE otherwise
  */
 int rt_raster_has_no_band(rt_raster raster, int nband);
-
 
 /**
  * Copy one band from one raster to another
  * @param torast: raster to copy band to
  * @param fromrast: raster to copy band from
- * @param fromindex: index of band in source raster
- * @param toindex: index of new band in destination raster
+ * @param fromindex: index of band in source raster, 0-based
+ * @param toindex: index of new band in destination raster, 0-based
  * @return The band index of the second raster where the new band is copied.
  */
 int32_t rt_raster_copy_band(rt_raster torast,
@@ -948,7 +980,7 @@ rt_raster rt_raster_from_band(rt_raster raster, uint32_t *bandNums,
  * 
  * @param raster: raster of band to be replaced
  * @param band : new band to add to raster
- * @param index : index of band to replace (1-based)
+ * @param index : index of band to replace (0-based)
  *
  * @return 0 on error or replaced band
  */
@@ -1108,6 +1140,27 @@ int rt_raster_same_alignment(
 	int *aligned
 );
 
+/*
+ * Return raster of computed extent specified extenttype applied
+ * on two input rasters.  The raster returned should be freed by
+ * the caller
+ *
+ * @param rast1 : the first raster
+ * @param rast2 : the second raster
+ * @param extenttype : type of extent for the output raster
+ * @param err : if 0, error occurred
+ * @param offset : 4-element array indicating the X,Y offsets
+ * for each raster. 0,1 for rast1 X,Y. 2,3 for rast2 X,Y.
+ *
+ * @return raster object if success, NULL otherwise
+ */
+rt_raster
+rt_raster_from_two_rasters(
+	rt_raster rast1, rt_raster rast2,
+	rt_extenttype extenttype,
+	int *err, double *offset
+);
+
 /*- utilities -------------------------------------------------------*/
 
 /*
@@ -1121,6 +1174,8 @@ extern void rtdealloc(void *mem);
 
 /* Set of functions to clamp double to int of different size
  */
+
+#define POSTGIS_RASTER_WARN_ON_TRUNCATION
 
 #define POSTGIS_RT_1BBMAX 1
 #define POSTGIS_RT_2BUIMAX 3
@@ -1183,6 +1238,12 @@ const char*
 rt_util_gdal_version(const char *request);
 
 /*
+	computed extent type from c string
+*/
+rt_extenttype
+rt_util_extent_type(const char *name);
+
+/*
 	helper macros for consistent floating point equality checks
 */
 #define FLT_NEQ(x, y) (fabs(x - y) > FLT_EPSILON)
@@ -1193,7 +1254,7 @@ rt_util_gdal_version(const char *request);
 /*
 	helper macro for symmetrical rounding
 */
-#define ROUND(x, y) (((x > 0.0) ? floor((x * pow(10, y) + 0.5)) : ceil((x * pow(10, y) - 0.5))) / pow(10, y));
+#define ROUND(x, y) (((x > 0.0) ? floor((x * pow(10, y) + 0.5)) : ceil((x * pow(10, y) - 0.5))) / pow(10, y))
 
 /**
  * Struct definitions

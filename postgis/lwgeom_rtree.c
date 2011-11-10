@@ -265,7 +265,7 @@ LWMLINE *findLineSegments(RTREE_NODE *root, double value)
 
 		POSTGIS_DEBUGF(3, "Found geom %p, type %d, dim %d", root->segment, root->segment->type, FLAGS_GET_Z(root->segment->flags));
 
-		result = (LWMLINE *)lwcollection_construct(lwgeom_makeType_full(0, 0, 0, MULTILINETYPE, 0), SRID_UNKNOWN, NULL, 1, lwgeoms);
+		result = (LWMLINE *)lwcollection_construct(MULTILINETYPE, SRID_UNKNOWN, NULL, 1, lwgeoms);
 	}
 
 	/* If there is a left child node, recursively include its results. */
@@ -343,7 +343,7 @@ uint32 isContained(INTERVAL *interval, double value)
 PG_FUNCTION_INFO_V1(LWGEOM_polygon_index);
 Datum LWGEOM_polygon_index(PG_FUNCTION_ARGS)
 {
-	PG_LWGEOM *igeom, *result;
+	GSERIALIZED *igeom, *result;
 	LWGEOM *geom;
 	LWPOLY *poly;
 	LWMLINE *mline;
@@ -356,9 +356,9 @@ Datum LWGEOM_polygon_index(PG_FUNCTION_ARGS)
 	POSTGIS_DEBUG(2, "polygon_index called.");
 
 	result = NULL;
-	igeom = (PG_LWGEOM *)PG_DETOAST_DATUM(PG_GETARG_DATUM(0));
+	igeom = (GSERIALIZED *)PG_DETOAST_DATUM(PG_GETARG_DATUM(0));
 	yval = PG_GETARG_FLOAT8(1);
-	geom = pglwgeom_deserialize(igeom);
+	geom = lwgeom_from_gserialized(igeom);
 	if (geom->type != POLYGONTYPE)
 	{
 		lwgeom_release(geom);
@@ -379,7 +379,7 @@ Datum LWGEOM_polygon_index(PG_FUNCTION_ARGS)
 #endif
 
 	if (mline)
-		result = pglwgeom_serialize((LWGEOM *)mline);
+		result = geometry_serialize((LWGEOM *)mline);
 
 	POSTGIS_DEBUGF(3, "returning result %p", result);
 
@@ -404,7 +404,7 @@ RTREE_POLY_CACHE * createCache()
 	return result;
 }
 
-void populateCache(RTREE_POLY_CACHE *currentCache, LWGEOM *lwgeom, PG_LWGEOM *serializedPoly)
+void populateCache(RTREE_POLY_CACHE *currentCache, LWGEOM *lwgeom, GSERIALIZED *serializedPoly)
 {
 	int i, p, r, length;
 	LWMPOLY *mpoly;
@@ -482,7 +482,7 @@ void populateCache(RTREE_POLY_CACHE *currentCache, LWGEOM *lwgeom, PG_LWGEOM *se
  * method.	The method will allocate memory for the cache it creates,
  * as well as freeing the memory of any cache that is no longer applicable.
  */
-RTREE_POLY_CACHE *retrieveCache(LWGEOM *lwgeom, PG_LWGEOM *serializedPoly, RTREE_POLY_CACHE *currentCache)
+RTREE_POLY_CACHE *retrieveCache(LWGEOM *lwgeom, GSERIALIZED *serializedPoly, RTREE_POLY_CACHE *currentCache)
 {
 	int length;
 

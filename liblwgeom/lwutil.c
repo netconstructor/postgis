@@ -3,7 +3,6 @@
 #include <stdarg.h>
 #include <string.h>
 
-
 /* Global variables */
 #include "../postgis_config.h"
 #include "liblwgeom_internal.h"
@@ -40,7 +39,6 @@ static char *lwgeomTypeName[] =
 	"Triangle",
 	"Tin"
 };
-
 
 /*
  * lwnotice/lwerror handlers
@@ -208,7 +206,8 @@ void lwgeom_install_default_allocators(void)
 }
 
 
-const char* lwtype_name(uint8_t type)
+const char* 
+lwtype_name(uint8_t type)
 {
 	if ( type > 15 )
 	{
@@ -373,9 +372,15 @@ error_if_srid_mismatch(int srid1, int srid2)
 int
 clamp_srid(int srid)
 {
-	if ( srid <= 0 && srid != SRID_UNKNOWN ) {
-		lwnotice("SRID value %d converted to the officially unknown SRID value %d", srid, SRID_UNKNOWN);
-		srid = SRID_UNKNOWN;
+	if ( srid <= 0 ) {
+		if ( srid != SRID_UNKNOWN ) {
+			lwnotice("SRID value %d converted to the officially unknown SRID value %d", srid, SRID_UNKNOWN);
+			srid = SRID_UNKNOWN;
+		}
+	} else if ( srid > SRID_MAXIMUM ) {
+		/* should this be a NOTICE instead ? */
+		lwerror("SRID value %d > SRID_MAXIMUM (%d)",srid,SRID_MAXIMUM);
 	}
+	
 	return srid;
 }

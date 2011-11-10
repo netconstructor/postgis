@@ -1,17 +1,20 @@
-NOTICE:  Raster is NULL. Returning NULL
+WARNING:  Raster is NULL. Returning NULL
+t
+WARNING:  Raster is NULL. Returning NULL
 t
 NOTICE:  Raster is empty. Returning an empty raster
 t
-NOTICE:  Raster do not have the required band. Returning a raster without a band
+NOTICE:  Raster is empty. Returning an empty raster
+t
+NOTICE:  Raster does not have the required band. Returning a raster without a band
+t
+NOTICE:  Raster does not have the required band. Returning a raster without a band
 t
 |19
-|1
-NOTICE:  rt_raster_copy_band: Second raster has no band
-NOTICE:  Could not find raster band of index 1 when getting pixel value. Returning NULL
+|19
 |
-NOTICE:  rt_raster_copy_band: Second raster has no band
-NOTICE:  Could not find raster band of index 1 when getting pixel value. Returning NULL
-|
+|19
+NOTICE:  Value set for 4BUI band got clamped from -1.000000 to 0
 NOTICE:  Value set for 4BUI band got clamped from 120.000000 to 15
 NOTICE:  Value set for 4BUI band got clamped from 120.000000 to 15
 NOTICE:  Value set for 4BUI band got clamped from 120.000000 to 15
@@ -114,6 +117,7 @@ NOTICE:  Value set for 4BUI band got clamped from 120.000000 to 15
 NOTICE:  Value set for 4BUI band got clamped from 120.000000 to 15
 100|
 100|120
+NOTICE:  Value set for 2BUI band got clamped from -1.000000 to 0
 NOTICE:  Value set for 2BUI band got clamped from 121.000000 to 3
 NOTICE:  Value set for 2BUI band got clamped from 121.000000 to 3
 NOTICE:  Value set for 2BUI band got clamped from 121.000000 to 3
@@ -215,3 +219,5 @@ NOTICE:  Value set for 2BUI band got clamped from 121.000000 to 3
 NOTICE:  Value set for 2BUI band got clamped from 121.000000 to 3
 NOTICE:  Value set for 2BUI band got clamped from 121.000000 to 3
 101|
+213|213
+6314|6314

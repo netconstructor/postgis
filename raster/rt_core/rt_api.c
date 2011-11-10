@@ -38,8 +38,12 @@
 #include <time.h> /* for time */
 #include "rt_api.h"
 
-#define POSTGIS_RASTER_WARN_ON_TRUNCATION
-
+/******************************************************************************
+ * Some rules for *.(c|h) files in rt_core
+ *
+ * All functions in rt_core that receive a band index parameter
+ *   must be 0-based
+ *****************************************************************************/
 
 /*--- Utilities -------------------------------------------------*/
 
@@ -251,6 +255,21 @@ rt_util_gdal_version(const char *request) {
 		return GDALVersionInfo("RELEASE_NAME");
 	else
 		return GDALVersionInfo(request);
+}
+
+/*
+	computed extent type
+*/
+rt_extenttype
+rt_util_extent_type(const char *name) {
+	if (strcmp(name, "UNION") == 0)
+		return ET_UNION;
+	else if (strcmp(name, "FIRST") == 0)
+		return ET_FIRST;
+	else if (strcmp(name, "SECOND") == 0)
+		return ET_SECOND;
+	else
+		return ET_INTERSECTION;
 }
 
 /*- rt_context -------------------------------------------------------*/
@@ -607,7 +626,7 @@ rt_util_display_dbl_trunc_warning(double initialvalue,
 
 /*--- Debug and Testing Utilities --------------------------------------------*/
 
-#if POSTGIS_DEBUG_LEVEL > 3
+#if POSTGIS_DEBUG_LEVEL > 2
 
 static char*
 d_binary_to_hex(const uint8_t * const raw, uint32_t size, uint32_t *hexsize) {
@@ -676,111 +695,144 @@ d_binptr_to_pos(const uint8_t * const ptr, const uint8_t * const end, size_t siz
 
 int
 rt_pixtype_size(rt_pixtype pixtype) {
-    int pixbytes = -1;
+	int pixbytes = -1;
 
+	switch (pixtype) {
+		case PT_1BB:
+		case PT_2BUI:
+		case PT_4BUI:
+		case PT_8BSI:
+		case PT_8BUI:
+			pixbytes = 1;
+			break;
+		case PT_16BSI:
+		case PT_16BUI:
+			pixbytes = 2;
+			break;
+		case PT_32BSI:
+		case PT_32BUI:
+		case PT_32BF:
+			pixbytes = 4;
+			break;
+		case PT_64BF:
+			pixbytes = 8;
+			break;
+		default:
+			rterror("rt_pixtype_size: Unknown pixeltype %d", pixtype);
+			pixbytes = -1;
+			break;
+	}
 
+	RASTER_DEBUGF(3, "Pixel type = %s and size = %d bytes",
+		rt_pixtype_name(pixtype), pixbytes);
 
-    switch (pixtype) {
-        case PT_1BB:
-        case PT_2BUI:
-        case PT_4BUI:
-        case PT_8BSI:
-        case PT_8BUI:
-            pixbytes = 1;
-            break;
-        case PT_16BSI:
-        case PT_16BUI:
-            pixbytes = 2;
-            break;
-        case PT_32BSI:
-        case PT_32BUI:
-        case PT_32BF:
-            pixbytes = 4;
-            break;
-        case PT_64BF:
-            pixbytes = 8;
-            break;
-        default:
-            rterror("rt_pixtype_size: Unknown pixeltype %d", pixtype);
-            pixbytes = -1;
-            break;
-    }
-
-    RASTER_DEBUGF(3, "Pixel type = %s and size = %d bytes",
-            rt_pixtype_name(pixtype), pixbytes);
-
-
-    return pixbytes;
+	return pixbytes;
 }
 
 int
 rt_pixtype_alignment(rt_pixtype pixtype) {
-
-    return rt_pixtype_size(pixtype);
+	return rt_pixtype_size(pixtype);
 }
 
 rt_pixtype
 rt_pixtype_index_from_name(const char* pixname) {
-    assert(pixname && strlen(pixname) > 0);
+	assert(pixname && strlen(pixname) > 0);
 
+	if (strcmp(pixname, "1BB") == 0)
+		return PT_1BB;
+	if (strcmp(pixname, "2BUI") == 0)
+		return PT_2BUI;
+	if (strcmp(pixname, "4BUI") == 0)
+		return PT_4BUI;
+	if (strcmp(pixname, "8BSI") == 0)
+		return PT_8BSI;
+	if (strcmp(pixname, "8BUI") == 0)
+		return PT_8BUI;
+	if (strcmp(pixname, "16BSI") == 0)
+		return PT_16BSI;
+	if (strcmp(pixname, "16BUI") == 0)
+		return PT_16BUI;
+	if (strcmp(pixname, "32BSI") == 0)
+		return PT_32BSI;
+	if (strcmp(pixname, "32BUI") == 0)
+		return PT_32BUI;
+	if (strcmp(pixname, "32BF") == 0)
+		return PT_32BF;
+	if (strcmp(pixname, "64BF") == 0)
+		return PT_64BF;
 
-    if (strcmp(pixname, "1BB") == 0)
-        return PT_1BB;
-    if (strcmp(pixname, "2BUI") == 0)
-        return PT_2BUI;
-    if (strcmp(pixname, "4BUI") == 0)
-        return PT_4BUI;
-    if (strcmp(pixname, "8BSI") == 0)
-        return PT_8BSI;
-    if (strcmp(pixname, "8BUI") == 0)
-        return PT_8BUI;
-    if (strcmp(pixname, "16BSI") == 0)
-        return PT_16BSI;
-    if (strcmp(pixname, "16BUI") == 0)
-        return PT_16BUI;
-    if (strcmp(pixname, "32BSI") == 0)
-        return PT_32BSI;
-    if (strcmp(pixname, "32BUI") == 0)
-        return PT_32BUI;
-    if (strcmp(pixname, "32BF") == 0)
-        return PT_32BF;
-    if (strcmp(pixname, "64BF") == 0)
-        return PT_64BF;
-    return PT_END;
+	return PT_END;
 }
 
 const char*
 rt_pixtype_name(rt_pixtype pixtype) {
+	switch (pixtype) {
+		case PT_1BB:
+			return "1BB";
+		case PT_2BUI:
+			return "2BUI";
+		case PT_4BUI:
+			return "4BUI";
+		case PT_8BSI:
+			return "8BSI";
+		case PT_8BUI:
+			return "8BUI";
+		case PT_16BSI:
+			return "16BSI";
+		case PT_16BUI:
+			return "16BUI";
+		case PT_32BSI:
+			return "32BSI";
+		case PT_32BUI:
+			return "32BUI";
+		case PT_32BF:
+			return "32BF";
+		case PT_64BF:
+			return "64BF";
+		default:
+			rterror("rt_pixtype_name: Unknown pixeltype %d", pixtype);
+			return "Unknown";
+	}
+}
 
-
-
-    switch (pixtype) {
-        case PT_1BB:
-            return "1BB";
-        case PT_2BUI:
-            return "2BUI";
-        case PT_4BUI:
-            return "4BUI";
-        case PT_8BSI:
-            return "8BSI";
-        case PT_8BUI:
-            return "8BUI";
-        case PT_16BSI:
-            return "16BSI";
-        case PT_16BUI:
-            return "16BUI";
-        case PT_32BSI:
-            return "32BSI";
-        case PT_32BUI:
-            return "32BUI";
-        case PT_32BF:
-            return "32BF";
-        case PT_64BF:
-            return "64BF";
-        default:
-            rterror("rt_pixtype_name: Unknown pixeltype %d", pixtype);
-            return "Unknown";
-    }
+/**
+ * Return minimum value possible for pixel type
+ *
+ * @param pixtype: the pixel type to get minimum possible value for
+ *
+ * @return the minimum possible value for the pixel type.
+ */
+double
+rt_pixtype_get_min_value(rt_pixtype pixtype) {
+	switch (pixtype) {
+		case PT_1BB:
+		case PT_2BUI:
+		case PT_4BUI:
+		case PT_8BUI: {
+			return (double) CHAR_MIN;
+		}
+		case PT_8BSI: {
+			return (double) SCHAR_MIN;
+		}
+		case PT_16BSI:
+		case PT_16BUI: {
+			return (double) SHRT_MIN;
+		}
+		case PT_32BSI:
+		case PT_32BUI: {
+			return (double) INT_MIN;
+		}
+		case PT_32BF: {
+			return (double) -FLT_MAX;
+		}
+		case PT_64BF: {
+			return (double) -DBL_MAX;
+		}
+		default: {
+			rterror("rt_pixtype_get_min_value: Unknown pixeltype %d", pixtype);
+			return (double) CHAR_MIN;
+		}
+	}
 }
 
 /*- rt_band ----------------------------------------------------------*/
@@ -1164,6 +1216,19 @@ rt_band_set_nodata(rt_band band, double val) {
     return 0;
 }
 
+/**
+ * Set pixel value
+ *
+ * @param band : the band to set nodata value to
+ * @param x : x ordinate (0-based)
+ * @param y : x ordinate (0-based)
+ * @param val : the pixel value, must be in the range
+ *              of values supported by this band's pixeltype
+ *              or a warning will be printed and non-zero
+ *              returned.
+ *
+ * @return 0 on success, -1 on error (value out of valid range).
+ */
 int
 rt_band_set_pixel(rt_band band, uint16_t x, uint16_t y,
         double val) {
@@ -1304,6 +1369,16 @@ rt_band_set_pixel(rt_band band, uint16_t x, uint16_t y,
     return 0;
 }
 
+/**
+ * Get pixel value
+ *
+ * @param band : the band to set nodata value to
+ * @param x : x ordinate (0-based)
+ * @param y : x ordinate (0-based)
+ * @param *result: result if there is a value
+ *
+ * @return 0 on success, -1 on error (value out of valid range).
+ */
 int
 rt_band_get_pixel(rt_band band, uint16_t x, uint16_t y, double *result) {
     rt_pixtype pixtype = PT_END;
@@ -1440,50 +1515,9 @@ rt_band_get_nodata(rt_band band) {
 
 double
 rt_band_get_min_value(rt_band band) {
-    rt_pixtype pixtype = PT_END;
+	assert(NULL != band);
 
-
-
-    assert(NULL != band);
-
-    pixtype = band->pixtype;
-
-    switch (pixtype) {
-        case PT_1BB:
-        case PT_2BUI:
-        case PT_4BUI:
-        case PT_8BUI:
-        {
-            return (double)CHAR_MIN;
-        }
-        case PT_8BSI:
-        {
-            return (double)SCHAR_MIN;
-        }
-        case PT_16BSI:
-        case PT_16BUI:
-        {
-            return (double)SHRT_MIN;
-        }
-        case PT_32BSI:
-        case PT_32BUI:
-        {
-            return (double)INT_MIN;
-        }
-        case PT_32BF:
-        {
-            return (double)-FLT_MAX;
-        }
-        case PT_64BF:
-        {
-            return (double)-DBL_MAX;
-        }
-        default:
-        {
-            rterror("rt_band_get_min_value: Unknown pixeltype %d", pixtype);
-            return (double)CHAR_MIN;
-        }
-    }
+	return rt_pixtype_get_min_value(band->pixtype);
 }
 
 
@@ -4028,6 +4062,27 @@ rt_raster_get_geotransform_matrix(rt_raster raster,
 }
 
 /**
+ * Set raster's geotransform using 6-element array
+ *
+ * @param raster : the raster to set matrix of
+ * @param gt : intput parameter, 6-element geotransform matrix
+ *
+ */
+void
+rt_raster_set_geotransform_matrix(rt_raster raster,
+	double *gt) {
+	assert(NULL != raster);
+	assert(NULL != gt);
+
+	raster->ipX = gt[0];
+	raster->scaleX = gt[1];
+	raster->skewX = gt[2];
+	raster->ipY = gt[3];
+	raster->skewY = gt[4];
+	raster->scaleY = gt[5];
+}
+
+/**
  * Convert an xr, yr raster point to an xw, yw point on map
  *
  * @param raster : the raster to get info from
@@ -4077,7 +4132,7 @@ rt_raster_cell_to_geopoint(rt_raster raster,
 	}
 
 	GDALApplyGeoTransform(_gt, xr, yr, xw, yw);
-	RASTER_DEBUGF(4, "GDALApplyGeoTransform for (%f, %f) = (%f, %f)",
+	RASTER_DEBUGF(4, "GDALApplyGeoTransform (c -> g) for (%f, %f) = (%f, %f)",
 		xr, yr, *xw, *yw);
 
 	if (init_gt) rtdealloc(_gt);
@@ -4105,6 +4160,7 @@ rt_raster_geopoint_to_cell(rt_raster raster,
 	double *_igt = NULL;
 	int i = 0;
 	int init_igt = 0;
+	double rnd = 0;
 
 	assert(NULL != raster);
 	assert(NULL != xr);
@@ -4145,16 +4201,44 @@ rt_raster_geopoint_to_cell(rt_raster raster,
 	}
 
 	GDALApplyGeoTransform(_igt, xw, yw, xr, yr);
-	*xr = floor(*xr);
-	*yr = floor(*yr);
+	RASTER_DEBUGF(4, "GDALApplyGeoTransform (g -> c) for (%f, %f) = (%f, %f)",
+		xw, yw, *xr, *yr);
 
-	RASTER_DEBUGF(4, "GDALApplyGeoTransform for (%f, %f) = (%f, %f)",
+	rnd = ROUND(*xr, 0);
+	if (FLT_EQ(rnd, *xr))
+		*xr = rnd;
+	else
+		*xr = floor(*xr);
+
+	rnd = ROUND(*yr, 0);
+	if (FLT_EQ(rnd, *yr))
+		*yr = rnd;
+	else
+		*yr = floor(*yr);
+
+	RASTER_DEBUGF(4, "GDALApplyGeoTransform (g -> c) for (%f, %f) = (%f, %f)",
 		xw, yw, *xr, *yr);
 
 	if (init_igt) rtdealloc(_igt);
 	return 1;
 }
 
+/**
+ * Returns a set of "geomval" value, one for each group of pixel
+ * sharing the same value for the provided band.
+ *
+ * A "geomval " value is a complex type composed of a the wkt
+ * representation of a geometry (one for each group of pixel sharing
+ * the same value) and the value associated with this geometry.
+ *
+ * @param raster: the raster to get info from.
+ * @param nband: the band to polygonize. 0-based
+ *
+ * @return A set of "geomval" values, one for each group of pixels
+ * sharing the same value for the provided band. The returned values are
+ * WKT geometries, not real PostGIS geometries (this may change in the
+ * future, and the function returns real geometries)
+ */
 rt_geomval
 rt_raster_dump_as_wktpolygons(rt_raster raster, int nband, int * pnElements)
 {
@@ -4178,20 +4262,20 @@ rt_raster_dump_as_wktpolygons(rt_raster raster, int nband, int * pnElements)
     int iBandHasNodataValue = FALSE;
     double dBandNoData = 0.0;
 
-    uint32_t bandNums[1] = {nband - 1};
+    uint32_t bandNums[1] = {nband};
 
     /* Checkings */
 
 
     assert(NULL != raster);
-    assert(nband > 0 && nband <= rt_raster_get_num_bands(raster));
+    assert(nband >= 0 && nband < rt_raster_get_num_bands(raster));
 
     RASTER_DEBUG(2, "In rt_raster_dump_as_polygons");
 
     /*******************************
      * Get band
      *******************************/
-    band = rt_raster_get_band(raster, nband - 1);
+    band = rt_raster_get_band(raster, nband);
     if (NULL == band) {
         rterror("rt_raster_dump_as_wktpolygons: Error getting band %d from raster", nband);
         return 0;
@@ -5875,67 +5959,83 @@ rt_raster_deserialize(void* serialized, int header_only) {
     return rast;
 }
 
-int rt_raster_is_empty(rt_raster raster) {
-
-
-    return (NULL == raster || raster->height <= 0 || raster->width <= 0);
+/**
+ * Return TRUE if the raster is empty. i.e. is NULL, width = 0 or height = 0
+ *
+ * @param raster: the raster to get info from
+ *
+ * @return TRUE if the raster is empty, FALSE otherwise
+ */
+int
+rt_raster_is_empty(rt_raster raster) {
+	return (NULL == raster || raster->height <= 0 || raster->width <= 0);
 }
 
-int rt_raster_has_no_band(rt_raster raster, int nband) {
-
-
-    return (NULL == raster || raster->numBands < nband);
+/**
+ * Return TRUE if the raster do not have a band of this number.
+ *
+ * @param raster: the raster to get info from
+ * @param nband: the band number. 0-based
+ *
+ * @return TRUE if the raster do not have a band of this number, FALSE otherwise
+ */
+int
+rt_raster_has_no_band(rt_raster raster, int nband) {
+	return (NULL == raster || nband >= raster->numBands || nband < 0);
 }
 
-int32_t rt_raster_copy_band(rt_raster torast,
-        rt_raster fromrast, int fromindex, int toindex)
-{
-    rt_band newband = NULL;
+/**
+ * Copy one band from one raster to another
+ * @param torast: raster to copy band to
+ * @param fromrast: raster to copy band from
+ * @param fromindex: index of band in source raster, 0-based
+ * @param toindex: index of new band in destination raster, 0-based
+ * @return The band index of the second raster where the new band is copied.
+ */
+int32_t
+rt_raster_copy_band(
+	rt_raster torast, rt_raster fromrast,
+	int fromindex, int toindex
+) {
+	rt_band newband = NULL;
 
+	assert(NULL != torast);
+	assert(NULL != fromrast);
 
-    assert(NULL != torast);
-    assert(NULL != fromrast);
+	/* Check raster dimensions */
+	if (torast->height != fromrast->height || torast->width != fromrast->width) {
+		rtwarn("rt_raster_copy_band: Attempting to add a band with different width or height");
+		return -1;
+	}
 
-    /* Check raster dimensions */
-    if (torast->height != fromrast->height || torast->width != fromrast->width)
-    {
-        rtwarn("rt_raster_copy_band: Attempting to add a band with different width or height");
-        return -1;
-    }
+	/* Check bands limits */
+	if (fromrast->numBands < 1) {
+		rtwarn("rt_raster_copy_band: Second raster has no band");
+		return -1;
+	}
+	else if (fromindex < 0) {
+		rtwarn("rt_raster_copy_band: Band index for second raster < 0. Defaulted to 0");
+		fromindex = 0;
+	}
+	else if (fromindex >= fromrast->numBands) {
+		rtwarn("rt_raster_copy_band: Band index for second raster > number of bands, truncated from %u to %u", fromindex, fromrast->numBands - 1);
+		fromindex = fromrast->numBands - 1;
+	}
 
-    /* Check bands limits */
-    if (fromrast->numBands < 1)
-    {
-        rtwarn("rt_raster_copy_band: Second raster has no band");
-        return -1;
-    }
-    else if (fromindex < 0)
-    {
-        rtwarn("rt_raster_copy_band: Band index for second raster < 0. Defaulted to 1");
-        fromindex = 0;
-    }
-    else if (fromindex >= fromrast->numBands)
-    {
-        rtwarn("rt_raster_copy_band: Band index for second raster > number of bands, truncated from %u to %u", fromindex - 1, fromrast->numBands);
-        fromindex = fromrast->numBands - 1;
-    }
+	if (toindex < 0) {
+		rtwarn("rt_raster_copy_band: Band index for first raster < 0. Defaulted to 0");
+		toindex = 0;
+	}
+	else if (toindex > torast->numBands) {
+		rtwarn("rt_raster_copy_band: Band index for first raster > number of bands, truncated from %u to %u", toindex, torast->numBands);
+		toindex = torast->numBands;
+	}
 
-    if (toindex < 0)
-    {
-        rtwarn("rt_raster_copy_band: Band index for first raster < 0. Defaulted to 1");
-        toindex = 0;
-    }
-    else if (toindex > torast->numBands)
-    {
-        rtwarn("rt_raster_copy_band: Band index for first raster > number of bands, truncated from %u to %u", toindex - 1, torast->numBands);
-        toindex = torast->numBands;
-    }
+	/* Get band from source raster */
+	newband = rt_raster_get_band(fromrast, fromindex);
 
-    /* Get band from source raster */
-    newband = rt_raster_get_band(fromrast, fromindex);
-
-    /* Add band to the second raster */
-    return rt_raster_add_band(torast, newband, toindex);
+	/* Add band to the second raster */
+	return rt_raster_add_band(torast, newband, toindex);
 }
 
 /**
@@ -6004,7 +6104,7 @@ rt_raster_from_band(rt_raster raster, uint32_t *bandNums, int count) {
  *
  * @param raster: raster of band to be replaced
  * @param band : new band to add to raster
- * @param index : index of band to replace (1-based)
+ * @param index : index of band to replace (0-based)
  *
  * @return 0 on error or replaced band
  */
@@ -6019,7 +6119,7 @@ rt_raster_replace_band(rt_raster raster, rt_band band, int index) {
 		return 0;
 	}
 
-	if (index > raster->numBands || index < 0) {
+	if (index >= raster->numBands || index < 0) {
 		rterror("rt_raster_replace_band: Band index is not valid");
 		return 0;
 	}
@@ -7742,7 +7842,7 @@ rt_raster_gdal_rasterize(const unsigned char *wkb,
 		if (FLT_NEQ(grid_shift_yw, 0.) && FLT_NEQ(grid_shift_yw, _scale_y)) {
 			grid_max_y = src_env.MaxY + grid_shift_yw;
 			grid_max_y = modf(fabs(*grid_yw - grid_max_y) / _scale_y, &djunk);
-			if (FLT_NEQ(grid_max_y, 0.))
+			if (FLT_NEQ(grid_max_y, 0.) && FLT_NEQ(grid_max_y, 1.))
 				grid_shift_yw = _scale_y - fabs(grid_shift_yw);
 			grid_max_y = src_env.MaxY + grid_shift_yw;
 
@@ -8695,34 +8795,39 @@ rt_raster_same_alignment(
 	double yr;
 	double xw;
 	double yw;
+	int err = 0;
 
+	assert(NULL != rast1);
+	assert(NULL != rast2);
+
+	err = 0;
 	/* same srid */
 	if (rast1->srid != rast2->srid) {
-		rterror("rt_raster_same_alignment: The two rasters provided have different SRIDs");
-		*aligned = 0;
-		return 0;
+		RASTER_DEBUG(3, "The two rasters provided have different SRIDs");
+		err = 1;
 	}
 	/* scales must match */
 	else if (FLT_NEQ(rast1->scaleX, rast2->scaleX)) {
-		rterror("rt_raster_same_alignment: The two raster provided have different scales on the X axis");
-		*aligned = 0;
-		return 0;
+		RASTER_DEBUG(3, "The two raster provided have different scales on the X axis");
+		err = 1;
 	}
 	else if (FLT_NEQ(rast1->scaleY, rast2->scaleY)) {
-		rterror("rt_raster_same_alignment: The two raster provided have different scales on the Y axis");
-		*aligned = 0;
-		return 0;
+		RASTER_DEBUG(3, "The two raster provided have different scales on the Y axis");
+		err = 1;
 	}
 	/* skews must match */
 	else if (FLT_NEQ(rast1->skewX, rast2->skewX)) {
-		rterror("rt_raster_same_alignment: The two raster provided have different skews on the X axis");
-		*aligned = 0;
-		return 0;
+		RASTER_DEBUG(3, "The two raster provided have different skews on the X axis");
+		err = 1;
 	}
 	else if (FLT_NEQ(rast1->skewY, rast2->skewY)) {
-		rterror("rt_raster_same_alignment: The two raster provided have different skews on the Y axis");
+		RASTER_DEBUG(3, "The two raster provided have different skews on the Y axis");
+		err = 1;
+	}
+
+	if (err) {
 		*aligned = 0;
-		return 0;
+		return 1;
 	}
 
 	/* raster coordinates in context of second raster of first raster's upper-left corner */
@@ -8749,13 +8854,311 @@ rt_raster_same_alignment(
 		return 0;
 	}
 
+	RASTER_DEBUGF(4, "rast1(ipX, ipxY) = (%f, %f)", rast1->ipX, rast1->ipY);
+	RASTER_DEBUGF(4, "rast2(xr, yr) = (%f, %f)", xr, yr);
+	RASTER_DEBUGF(4, "rast2(xw, yw) = (%f, %f)", xw, yw);
+
 	/* spatial coordinates are identical to that of first raster's upper-left corner */
 	if (FLT_EQ(xw, rast1->ipX) && FLT_EQ(yw, rast1->ipY)) {
+		RASTER_DEBUG(3, "The two rasters are aligned");
 		*aligned = 1;
 		return 1;
 	}
 
 	/* no alignment */
+	RASTER_DEBUG(3, "The two rasters are NOT aligned");
 	*aligned = 0;
 	return 1;
+}
+
+/*
+ * Return raster of computed extent specified extenttype applied
+ * on two input rasters.  The raster returned should be freed by
+ * the caller
+ *
+ * @param rast1 : the first raster
+ * @param rast2 : the second raster
+ * @param extenttype : type of extent for the output raster
+ * @param err : if 0, error occurred
+ * @param offset : 4-element array indicating the X,Y offsets
+ * for each raster. 0,1 for rast1 X,Y. 2,3 for rast2 X,Y.
+ *
+ * @return raster object if success, NULL otherwise
+ */
+rt_raster
+rt_raster_from_two_rasters(
+	rt_raster rast1, rt_raster rast2,
+	rt_extenttype extenttype,
+	int *err, double *offset
+) {
+	int i;
+
+	rt_raster _rast[2] = {rast1, rast2};
+	double _offset[2][4] = {{0.}};
+	uint16_t _dim[2][2] = {{0}};
+
+	rt_raster raster = NULL;
+	int aligned = 0;
+	uint16_t dim[2] = {0};
+	double gt[6] = {0.};
+
+	assert(NULL != rast1);
+	assert(NULL != rast2);
+
+	/* rasters must have same srid */
+	if (rast1->srid != rast2->srid) {
+		rterror("rt_raster_from_two_rasters: The two rasters provided do not have the same SRID");
+		*err = 0;
+		return NULL;
+	}
+
+	/* rasters must be aligned */
+	if (!rt_raster_same_alignment(rast1, rast2, &aligned)) {
+		rterror("rt_raster_from_two_rasters: Unable to test for alignment on the two rasters");
+		*err = 0;
+		return NULL;
+	}
+	if (!aligned) {
+		rterror("rt_raster_from_two_rasters: The two rasters provided do not have the same alignment");
+		*err = 0;
+		return NULL;
+	}
+
+	/* dimensions */
+	_dim[0][0] = rast1->width;
+	_dim[0][1] = rast1->height;
+	_dim[1][0] = rast2->width;
+	_dim[1][1] = rast2->height;
+
+	/* get raster offsets */
+	if (!rt_raster_geopoint_to_cell(
+		_rast[1],
+		_rast[0]->ipX, _rast[0]->ipY,
+		&(_offset[1][0]), &(_offset[1][1]),
+		NULL
+	)) {
+		rterror("rt_raster_from_two_rasters: Unable to compute offsets of the second raster relative to the first raster");
+		*err = 0;
+		return NULL;
+	}
+	_offset[1][0] = -1 * _offset[1][0];
+	_offset[1][1] = -1 * _offset[1][1];
+	_offset[1][2] = _offset[1][0] + _dim[1][0] - 1;
+	_offset[1][3] = _offset[1][1] + _dim[1][1] - 1;
+
+	i = -1;
+	switch (extenttype) {
+		case ET_FIRST:
+			i = 0;
+			_offset[0][0] = 0.;
+			_offset[0][1] = 0.;
+		case ET_SECOND:
+			if (i < 0) {
+				i = 1;
+				_offset[0][0] = -1 * _offset[1][0];
+				_offset[0][1] = -1 * _offset[1][1];
+				_offset[1][0] = 0.;
+				_offset[1][1] = 0.;
+			}
+
+			dim[0] = _dim[i][0];
+			dim[1] = _dim[i][1];
+			raster = rt_raster_new(
+				dim[0],
+				dim[1]
+			);
+			if (raster == NULL) {
+				rterror("rt_raster_from_two_rasters: Unable to create output raster");
+				*err = 0;
+				return NULL;
+			}
+			raster->srid = _rast[i]->srid;
+			rt_raster_get_geotransform_matrix(_rast[i], gt);
+			rt_raster_set_geotransform_matrix(raster, gt);
+			break;
+		case ET_UNION: {
+			double ip[2] = {0};
+			double offset[4] = {0};
+
+			rt_raster_get_geotransform_matrix(_rast[0], gt);
+
+			/* new upper-left */
+			ip[0] = _rast[1]->ipX;
+			ip[1] = _rast[1]->ipY;
+			if (ip[0] < gt[0])
+				gt[0] = ip[0];
+			if (ip[1] < gt[3])
+				gt[3] = ip[1];
+
+			/* new width and height */
+			offset[0] = 0;
+			if (_offset[1][0] < 0)
+				offset[0] = _offset[1][0];
+			offset[1] = 0;
+			if (_offset[1][1] < 0)
+				offset[1] = _offset[1][1];
+
+			offset[2] = _dim[0][0] - 1;
+			if ((int) _offset[1][2] >= _dim[0][0])
+				offset[2] = _offset[1][2];
+			offset[3] = _dim[0][1] - 1;
+			if ((int) _offset[1][3] >= _dim[0][1])
+				offset[3] = _offset[1][3];
+
+			dim[0] = offset[2] - offset[0] + 1;
+			dim[1] = offset[3] - offset[1] + 1;
+
+			raster = rt_raster_new(
+				dim[0],
+				dim[1]
+			);
+			if (raster == NULL) {
+				rterror("rt_raster_from_two_rasters: Unable to create output raster");
+				*err = 0;
+				return NULL;
+			}
+			raster->srid = _rast[0]->srid;
+			rt_raster_set_geotransform_matrix(raster, gt);
+
+			/* get offsets */
+			if (!rt_raster_geopoint_to_cell(
+				_rast[0],
+				gt[0], gt[3],
+				&(_offset[0][0]), &(_offset[0][1]),
+				NULL
+			)) {
+				rterror("rt_raster_from_two_rasters: Unable to get offsets of the FIRST raster relative to the output raster");
+				rt_raster_destroy(raster);
+				*err = 0;
+				return NULL;
+			}
+			_offset[0][0] *= -1;
+			_offset[0][1] *= -1;
+
+			if (!rt_raster_geopoint_to_cell(
+				_rast[1],
+				gt[0], gt[3],
+				&(_offset[1][0]), &(_offset[1][1]),
+				NULL
+			)) {
+				rterror("rt_raster_from_two_rasters: Unable to get offsets of the SECOND raster relative to the output raster");
+				rt_raster_destroy(raster);
+				*err = 0;
+				return NULL;
+			}
+			_offset[1][0] *= -1;
+			_offset[1][1] *= -1;
+		}	break;
+		case ET_INTERSECTION: {
+			double offset[4] = {0};
+			double ip[2] = {0};
+
+			/* no intersection */
+			if (
+				(_offset[1][2] < 0 || _offset[1][0] > (_dim[0][0] - 1)) ||
+				(_offset[1][3] < 0 || _offset[1][1] > (_dim[0][1] - 1))
+			) {
+				RASTER_DEBUG(3, "The two rasters provided have no intersection.  Returning no band raster");
+
+				raster = rt_raster_new(0, 0);
+				if (raster == NULL) {
+					rterror("rt_raster_from_two_rasters: Unable to create output raster");
+					*err = 0;
+					return NULL;
+				}
+				raster->srid = _rast[0]->srid;
+				rt_raster_set_scale(raster, 0, 0);
+
+				/* set offsets if provided */
+				if (NULL != offset) {
+					for (i = 0; i < 4; i++)
+						offset[i] = _offset[i / 2][i % 2];
+				}
+
+				*err = 1;
+				return raster;
+			}
+
+			if (_offset[1][0] > 0)
+				offset[0] = _offset[1][0];
+			if (_offset[1][1] > 0)
+				offset[1] = _offset[1][1];
+
+			offset[2] = _dim[0][0] - 1;
+			if (_offset[1][2] < _dim[0][0])
+				offset[2] = _offset[1][2];
+			offset[3] = _dim[0][1] - 1;
+			if (_offset[1][3] < _dim[0][1])
+				offset[3] = _offset[1][3];
+
+			dim[0] = offset[2] - offset[0] + 1;
+			dim[1] = offset[3] - offset[1] + 1;
+			raster = rt_raster_new(
+				dim[0],
+				dim[1]
+			);
+			if (raster == NULL) {
+				rterror("rt_raster_from_two_rasters: Unable to create output raster");
+				*err = 0;
+				return NULL;
+			}
+			raster->srid = _rast[0]->srid;
+
+			/* get upper-left corner */
+			rt_raster_get_geotransform_matrix(_rast[0], gt);
+			if (!rt_raster_cell_to_geopoint(
+				_rast[0],
+				offset[0], offset[1],
+				&(ip[0]), &(ip[1]),
+				gt
+			)) {
+				rterror("rt_raster_from_two_rasters: Unable to get spatial coordinates of upper-left pixel of output raster");
+				rt_raster_destroy(raster);
+				*err = 0;
+				return NULL;
+			}
+
+			gt[0] = ip[0];
+			gt[3] = ip[1];
+			rt_raster_set_geotransform_matrix(raster, gt);
+
+			/* get offsets */
+			if (!rt_raster_geopoint_to_cell(
+				_rast[0],
+				gt[0], gt[3],
+				&(_offset[0][0]), &(_offset[0][1]),
+				NULL
+			)) {
+				rterror("rt_raster_from_two_rasters: Unable to get pixel coordinates to compute the offsets of the FIRST raster relative to the output raster");
+				rt_raster_destroy(raster);
+				*err = 0;
+				return NULL;
+			}
+			_offset[0][0] *= -1;
+			_offset[0][1] *= -1;
+
+			if (!rt_raster_geopoint_to_cell(
+				_rast[1],
+				gt[0], gt[3],
+				&(_offset[1][0]), &(_offset[1][1]),
+				NULL
+			)) {
+				rterror("rt_raster_from_two_rasters: Unable to get pixel coordinates to compute the offsets of the SECOND raster relative to the output raster");
+				rt_raster_destroy(raster);
+				*err = 0;
+				return NULL;
+			}
+			_offset[1][0] *= -1;
+			_offset[1][1] *= -1;
+		}	break;
+	}
+
+	/* set offsets if provided */
+	if (NULL != offset) {
+		for (i = 0; i < 4; i++)
+			offset[i] = _offset[i / 2][i % 2];
+	}
+
+	*err = 1;
+	return raster;
 }

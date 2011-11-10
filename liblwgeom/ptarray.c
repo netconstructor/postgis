@@ -13,6 +13,8 @@
 #include <string.h>
 
 #include "liblwgeom_internal.h"
+
+/*#define POSTGIS_DEBUG_LEVEL 4*/
 #include "lwgeom_log.h"
 
 /*
@@ -321,53 +323,6 @@ ptarray_flip_coordinates(POINTARRAY *pa)
 	return pa;
 }
 
-
-/**
- * @brief calculate the 2d bounding box of a set of points
- * 		write result to the provided BOX2DFLOAT4
- * 		Return 0 if bounding box is NULL (empty geom)
- */
-int
-ptarray_compute_box2d_p(const POINTARRAY *pa, BOX2DFLOAT4 *result)
-{
-	BOX3D box3d;
-
-	/* Note: we perform the calculation using BOX3D and then
-	   convert to BOX2DFLOAT4 to prevent cumulative floating
-	   point rounding errors when calculating using BOX2DFLOAT4
-	   directly. */
-
-	if (pa->npoints == 0) return 0;
-
-	ptarray_compute_box3d_p(pa, &box3d);
-
-	box3d_to_box2df_p(&box3d, result);
-
-	return 1;
-}
-
-/**
- * @brief Calculate the 2d bounding box of a set of points.
- * @return allocated #BOX2DFLOAT4 or NULL (for empty array).
- */
-BOX2DFLOAT4 *
-ptarray_compute_box2d(const POINTARRAY *pa)
-{
-	BOX3D box3d;
-	BOX2DFLOAT4 *result;
-
-	/* Note: we perform the calculation using BOX3D and then
-	   convert to BOX2DFLOAT4 to prevent cumulative floating
-	   point rounding errors when calculating using BOX2DFLOAT4
-	   directly. */
-
-	result = lwalloc(sizeof(BOX2DFLOAT4));
-
-	ptarray_compute_box3d_p(pa, &box3d);
-	box3d_to_box2df_p(&box3d, result);
-
-	return result;
-}
 
 /**
  * @brief Returns a modified #POINTARRAY so that no segment is
@@ -712,83 +667,6 @@ ptarray_force_dims(const POINTARRAY *pa, int hasz, int hasm)
 	return pa_out;
 }
 
-/**
-* @brief Calculate the #BOX3D bounding box of a set of points
-* @return An lwalloc'ed #BOX3D, or NULL on empty array.
-*         zmin / zmax values are set to #NO_Z_VALUE if not available.
-*/
-BOX3D *
-ptarray_compute_box3d(const POINTARRAY *pa)
-{
-	BOX3D *result = lwalloc(sizeof(BOX3D));
-
-	if ( ! ptarray_compute_box3d_p(pa, result) )
-	{
-		lwfree(result);
-		return NULL;
-	}
-
-	return result;
-}
-
-/**
-* @brief calculate the #BOX3D bounding box of a set of points
-* 		zmin/zmax values are set to #NO_Z_VALUE if not available.
-* write result to the provided #BOX3D
-* @return 0 if bounding box is NULL (empty geom) and 1 otherwise
-*/
-int
-ptarray_compute_box3d_p(const POINTARRAY *pa, BOX3D *result)
-{
-	int t;
-	POINT3DZ pt;
-
-	LWDEBUGF(3, "ptarray_compute_box3d call (array has %d points)", pa->npoints);
-
-	if (pa->npoints == 0) return 0;
-
-	getPoint3dz_p(pa, 0, &pt);
-
-	LWDEBUG(3, "got point 0");
-
-	result->xmin = pt.x;
-	result->xmax = pt.x;
-	result->ymin = pt.y;
-	result->ymax = pt.y;
-
-	if ( FLAGS_GET_Z(pa->flags) )
-	{
-		result->zmin = pt.z;
-		result->zmax = pt.z;
-	}
-	else
-	{
-		result->zmin = NO_Z_VALUE;
-		result->zmax = NO_Z_VALUE;
-	}
-
-	LWDEBUGF(3, "scanning other %d points", pa->npoints);
-
-	for (t=1; t<pa->npoints; t++)
-	{
-		getPoint3dz_p(pa,t,&pt);
-		if (pt.x < result->xmin) result->xmin = pt.x;
-		if (pt.y < result->ymin) result->ymin = pt.y;
-		if (pt.x > result->xmax) result->xmax = pt.x;
-		if (pt.y > result->ymax) result->ymax = pt.y;
-
-		if ( FLAGS_GET_Z(pa->flags) )
-		{
-			if (pt.z > result->zmax) result->zmax = pt.z;
-			if (pt.z < result->zmin) result->zmin = pt.z;
-		}
-	}
-
-	LWDEBUG(3, "returning box");
-
-	return 1;
-}
-
 POINTARRAY *
 ptarray_substring(POINTARRAY *ipa, double from, double to)
 {
@@ -1053,12 +931,19 @@ ptarray_locate_point(POINTARRAY *pa, POINT2D *p, double* mindistout)
 			seg=t-1;
 		}
 
-		if ( mindist == 0 ) break;
+		if ( mindist == 0 )
+		{
+			LWDEBUG(3, "Breaking on mindist=0");
+			break;
+		}
 
 		start = end;
 	}
 
+	if ( mindistout ) *mindistout = mindist;
+
 	LWDEBUGF(3, "Closest segment: %d", seg);
+	LWDEBUGF(3, "mindist: %g", mindist);
 
 	/*
 	 * If mindist is not 0 we need to project the
@@ -1073,6 +958,15 @@ ptarray_locate_point(POINTARRAY *pa, POINT2D *p, double* mindistout)
 	else
 	{
 		proj = *p;
+	}
+
+	LWDEBUGF(3, "Closest segment:%d, npoints:%d", seg, pa->npoints);
+
+	/* For robustness, force 1 when closest point == endpoint */
+	if ( seg >= (pa->npoints-2) &&
+		( proj.x == end.x) && (proj.y == end.y) )
+	{
+		return 1;
 	}
 
 	LWDEBUGF(3, "Closest point on segment: %g,%g", proj.x, proj.y);
@@ -1094,9 +988,6 @@ ptarray_locate_point(POINTARRAY *pa, POINT2D *p, double* mindistout)
 	plen+=distance2d_pt_pt(&proj, &start);
 
 	LWDEBUGF(3, "plen %g, tlen %g", plen, tlen);
-	LWDEBUGF(3, "mindist: %g", mindist);
-
-	if ( mindistout ) *mindistout = mindist;
 
 	return plen/tlen;
 }

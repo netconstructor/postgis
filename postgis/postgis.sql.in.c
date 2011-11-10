@@ -1361,7 +1361,8 @@ CREATE AGGREGATE ST_3DExtent(
 -- SPATIAL_REF_SYS
 -------------------------------------------------------------------
 CREATE TABLE spatial_ref_sys (
-	 srid integer not null primary key,
+	 srid integer not null primary key
+		check (srid > 0 and srid < 999000),
 	 auth_name varchar(256),
 	 auth_srid integer,
 	 srtext varchar(2048),
@@ -1616,7 +1617,7 @@ LANGUAGE 'plpgsql' VOLATILE;
 -- Should also check the precision grid (future expansion).
 --
 -----------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION AddGeometryColumn(catalog_name varchar,schema_name varchar,table_name varchar,column_name varchar,new_srid integer,new_type varchar,new_dim integer, use_typmod boolean DEFAULT true)
+CREATE OR REPLACE FUNCTION AddGeometryColumn(catalog_name varchar,schema_name varchar,table_name varchar,column_name varchar,new_srid_in integer,new_type varchar,new_dim integer, use_typmod boolean DEFAULT true)
 	RETURNS text
 	AS
 $$
@@ -1625,6 +1626,7 @@ DECLARE
 	sr varchar;
 	real_schema name;
 	sql text;
+	new_srid integer;
 
 BEGIN
 
@@ -1662,11 +1664,20 @@ BEGIN
 
 
 	-- Verify SRID
-	IF ( new_srid != 0 AND new_srid != -1) THEN
+	IF ( new_srid_in > 0 ) THEN
+		IF new_srid_in >= 999000 THEN
+			RAISE EXCEPTION 'AddGeometryColumns() - SRID must be < 999000';
+		END IF;
+		new_srid := new_srid_in;
 		SELECT SRID INTO sr FROM spatial_ref_sys WHERE SRID = new_srid;
 		IF NOT FOUND THEN
 			RAISE EXCEPTION 'AddGeometryColumns() - invalid SRID';
 			RETURN 'fail';
+		END IF;
+	ELSE
+		new_srid := ST_SRID('POINT EMPTY'::geometry);
+		IF ( new_srid_in != new_srid ) THEN
+			RAISE NOTICE 'SRID value % converted to the officially unknown SRID value %', new_srid_in, new_srid;
 		END IF;
 	END IF;
 
@@ -2205,9 +2216,7 @@ DECLARE
 	libver text;
 	projver text;
 	geosver text;
-#ifdef POSTGIS_GDAL_VERSION
 	gdalver text;
-#endif
 	libxmlver text;
 	usestats bool;
 	dbproc text;
@@ -2217,9 +2226,13 @@ BEGIN
 	SELECT postgis_lib_version() INTO libver;
 	SELECT postgis_proj_version() INTO projver;
 	SELECT postgis_geos_version() INTO geosver;
-#ifdef POSTGIS_GDAL_VERSION
-	SELECT postgis_gdal_version() INTO gdalver;
-#endif
+	BEGIN
+		SELECT postgis_gdal_version() INTO gdalver;
+	EXCEPTION
+		WHEN undefined_function THEN
+			gdalver := NULL;
+			RAISE NOTICE 'Function postgis_gdal_version() not found.  Is raster support enabled and rtpostgis.sql installed?';
+	END;
 	SELECT postgis_libxml_version() INTO libxmlver;
 	SELECT postgis_uses_stats() INTO usestats;
 	SELECT postgis_scripts_installed() INTO dbproc;
@@ -2235,11 +2248,9 @@ BEGIN
 		fullver = fullver || ' PROJ="' || projver || '"';
 	END IF;
 
-#ifdef POSTGIS_GDAL_VERSION
 	IF  gdalver IS NOT NULL THEN
 		fullver = fullver || ' GDAL="' || gdalver || '"';
 	END IF;
-#endif
 
 	IF  libxmlver IS NOT NULL THEN
 		fullver = fullver || ' LIBXML="' || libxmlver || '"';
@@ -2751,6 +2762,25 @@ CREATE OR REPLACE FUNCTION ST_Snap(geometry, geometry, float8)
 CREATE OR REPLACE FUNCTION ST_RelateMatch(text, text)
        RETURNS bool
        AS 'MODULE_PATHNAME', 'ST_RelateMatch'
+       LANGUAGE 'C' IMMUTABLE STRICT
+       COST 100;
+
+--------------------------------------------------------------------------------
+-- ST_Node
+--------------------------------------------------------------------------------
+
+-- ST_Node(in geometry)
+--
+-- Fully node lines in input using the least set of nodes while
+-- preserving each of the input ones.
+-- Returns a linestring or a multilinestring containing all parts.
+--
+-- Availability: 2.0.0
+-- Requires GEOS >= 3.3.0
+--
+CREATE OR REPLACE FUNCTION ST_Node(g geometry)
+       RETURNS geometry
+       AS 'MODULE_PATHNAME', 'ST_Node'
        LANGUAGE 'C' IMMUTABLE STRICT
        COST 100;
 

@@ -57,6 +57,10 @@ DROP FUNCTION IF EXISTS ST_Intersection(raster, integer, geometry);
 DROP FUNCTION IF EXISTS ST_MapAlgebra(raster, integer, text, text, nodatavaluerepl text);
 DROP FUNCTION IF EXISTS ST_MapAlgebra(raster, pixeltype text, expression text, nodatavaluerepl text);
 
+--signatures changed
+DROP FUNCTION IF EXISTS  ST_MapAlgebraExpr(raster, integer, text, text, text);
+DROP FUNCTION IF EXISTS  ST_MapAlgebraExpr(raster, text, text, text);
+
 --added extra parameter so these are obsolete --
 DROP FUNCTION IF EXISTS ST_AsRaster(geometry , integer , integer , double precision , double precision , text , double precision , double precision , double precision , double precision );
 DROP FUNCTION IF EXISTS ST_AsRaster(geometry , integer , integer , text[] , double precision[] , double precision[] , double precision , double precision , double precision , double precision );
@@ -65,4 +69,12 @@ DROP FUNCTION IF EXISTS ST_AsRaster(geometry , integer , integer , double precis
 DROP FUNCTION IF EXISTS ST_AsRaster(geometry , integer , integer , double precision , double precision , text[] , double precision[] , double precision[] , double precision , double precision );
 DROP FUNCTION IF EXISTS ST_AsRaster(geometry , double precision , double precision , text , double precision , double precision , double precision , double precision , double precision , double precision );
 DROP FUNCTION IF EXISTS ST_AsRaster(geometry , raster , text , double precision , double precision );
-DROP FUNCTION IF EXISTS  _ST_AsRaster(geom geometry,scalex double precision , scaley double precision, width integer , height integer, pixeltype text[] , value double precision[] , nodataval double precision[] , upperleftx double precision, upperlefty double precision, gridx double precision, gridy double precision, skewx double precision, skewy double precision,touched boolean);
+DROP FUNCTION IF EXISTS _ST_AsRaster(geometry,double precision , double precision, integer , integer,text[] , double precision[] ,double precision[] ,  double precision,  double precision, double precision,double precision, double precision, double precision,touched boolean);
+-- arg names changed
+DROP FUNCTION IF EXISTS _ST_Resample(raster, text, double precision, integer, double precision, double precision, double precision, double precision, double precision, double precision);
+
+-- default parameters added
+DROP FUNCTION IF EXISTS ST_HasNoBand(raster);
+
+--function out parameters changed so can not just create or replace
+DROP FUNCTION IF EXISTS ST_BandMetaData(raster, integer);
